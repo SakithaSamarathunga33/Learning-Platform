@@ -169,7 +169,7 @@ const AdminCommentsPage = () => {
         
         setComments(Array.isArray(data) ? data : []);
 
-        // Also fetch achievements to get titles 
+        // Also fetch achievements to get titles
         fetchAchievements(true);
       } catch (err: any) {
         console.error('Error fetching comments:', err);
