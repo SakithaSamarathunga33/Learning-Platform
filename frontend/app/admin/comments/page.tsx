@@ -177,7 +177,7 @@ const AdminCommentsPage = () => {
       } finally {
         setLoading(false);
       }
-    };
+    };////
 
     fetchComments();
   }, [router]);
