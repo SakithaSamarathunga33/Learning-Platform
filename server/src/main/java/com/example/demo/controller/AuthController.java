@@ -107,23 +107,34 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody User user) {
-        Optional<User> existingUser = userRepository.findByUsername(user.getUsername());
-        if (existingUser.isPresent()) {
-            return ResponseEntity.badRequest().body("Username is already taken");
+        logger.info("Registration attempt for username: {}, email: {}", user.getUsername(), user.getEmail());
+
+        try {
+            Optional<User> existingUser = userRepository.findByUsername(user.getUsername());
+            if (existingUser.isPresent()) {
+                logger.warn("Registration failed: Username {} is already taken", user.getUsername());
+                return ResponseEntity.badRequest().body(Collections.singletonMap("message", "Username is already taken"));
+            }
+
+            Optional<User> existingEmail = userRepository.findByEmail(user.getEmail());
+            if (existingEmail.isPresent()) {
+                logger.warn("Registration failed: Email {} is already in use", user.getEmail());
+                return ResponseEntity.badRequest().body(Collections.singletonMap("message", "Email is already in use"));
+            }
+
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+            user.setProvider("LOCAL");
+            user.setRoles(Collections.singleton("ROLE_USER"));
+            user.setEnabled(true);
+
+            User savedUser = userRepository.save(user);
+            logger.info("User registered successfully: {}", savedUser.getUsername());
+            return ResponseEntity.ok(Collections.singletonMap("message", "User registered successfully"));
+        } catch (Exception e) {
+            logger.error("Registration error for username {}: {}", user.getUsername(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Collections.singletonMap("message", "An error occurred during registration"));
         }
-
-        Optional<User> existingEmail = userRepository.findByEmail(user.getEmail());
-        if (existingEmail.isPresent()) {
-            return ResponseEntity.badRequest().body("Email is already in use");
-        }
-
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        user.setProvider("LOCAL");
-        user.setRoles(Collections.singleton("ROLE_USER"));
-        user.setEnabled(true);
-
-        userRepository.save(user);
-        return ResponseEntity.ok("User registered successfully");
     }
 
     @PostMapping("/init-admin")

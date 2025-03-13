@@ -1,16 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Navbar from '@/components/layout/Navbar';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    // Check if user was redirected from registration
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('registered') === 'true') {
+      setSuccessMessage('Registration successful! Please log in with your credentials.');
+    }
+  }, []);
 
   const handleGoogleLogin = () => {
     window.location.href = 'http://localhost:8080/api/auth/google';
@@ -116,13 +126,22 @@ export default function LoginPage() {
                 Welcome Back
               </h2>
               <p className="mt-2 text-sm text-gray-600">
-                Sign in to continue your learning journey
+                Don't have an account?{' '}
+                <Link href="/register" className="font-medium text-[#4169E1] hover:text-[#4169E1]/90">
+                  Register now
+                </Link>
               </p>
             </div>
 
             {error && (
               <div className="mt-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
                 <p className="text-red-700">{error}</p>
+              </div>
+            )}
+
+            {successMessage && (
+              <div className="mt-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-md">
+                <p className="text-green-700">{successMessage}</p>
               </div>
             )}
 

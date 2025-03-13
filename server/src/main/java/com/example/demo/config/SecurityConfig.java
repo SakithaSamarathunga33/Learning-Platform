@@ -60,11 +60,12 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(request -> {
-                var corsConfig = new CorsConfiguration();
+                CorsConfiguration corsConfig = new CorsConfiguration();
                 corsConfig.setAllowedOrigins(Arrays.asList("http://localhost:3030"));
                 corsConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
                 corsConfig.setAllowedHeaders(Arrays.asList("*"));
                 corsConfig.setAllowCredentials(true);
+                corsConfig.setMaxAge(3600L);
                 return corsConfig;
             }))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
