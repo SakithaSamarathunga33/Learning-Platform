@@ -27,11 +27,11 @@ export default function LoginFormPage() {
       localStorage.setItem('user', JSON.stringify(data.user));
 
       // Check if user is admin and redirect accordingly
-      if (data.user.roles.includes('ROLE_ADMIN')) {
+      if (data.user.roles && data.user.roles.includes('ROLE_ADMIN')) {
         console.log('Admin login detected, redirecting to admin dashboard');
         router.push('/admin');
       } else {
-        router.push('/dashboard');
+        router.push('/');
       }
     } catch (err) {
       console.error('Login error:', err);

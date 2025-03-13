@@ -19,8 +19,9 @@ public class User implements UserDetails {
     private String username;
     private String password;
     private String email;
+    private String name;
+    private String picture;
     private String provider;
-    private String providerId;
     private Set<String> roles;
     private boolean enabled;
 
@@ -56,20 +57,28 @@ public class User implements UserDetails {
         this.email = email;
     }
 
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getPicture() {
+        return picture;
+    }
+
+    public void setPicture(String picture) {
+        this.picture = picture;
+    }
+
     public String getProvider() {
         return provider;
     }
 
     public void setProvider(String provider) {
         this.provider = provider;
-    }
-
-    public String getProviderId() {
-        return providerId;
-    }
-
-    public void setProviderId(String providerId) {
-        this.providerId = providerId;
     }
 
     public Set<String> getRoles() {
