@@ -3,34 +3,17 @@
 import { CldImage, CldUploadWidget } from 'next-cloudinary';
 import { useState } from 'react';
 
-interface CloudinaryResult {
-  event: string;
-  info: {
-    public_id: string;
-    secure_url: string;
-    resource_type: string;
-  };
-}
-
 export default function MediaUpload() {
   const [publicId, setPublicId] = useState('');
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
 
-  const handleUpload = async (error: Error | null, result: CloudinaryResult) => {
-    if (error) {
-      console.error('Upload error:', error);
-      setUploadStatus('error');
-      return;
-    }
-
-    if (!result || !result.info) {
-      setUploadStatus('error');
-      return;
-    }
-
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleUpload = async (results: any) => {
+    if (!results || results.event !== 'success' || !results.info) return;
+    
     try {
       setUploadStatus('uploading');
-      const { public_id, secure_url, resource_type } = result.info;
+      const { public_id, secure_url, resource_type } = results.info;
       setPublicId(public_id);
 
       const token = localStorage.getItem('token');
@@ -73,7 +56,7 @@ export default function MediaUpload() {
         uploadPreset="ml_default"
         onUpload={handleUpload}
         options={{
-          cloudName: 'drlfav5jz',
+          cloudName: 'drm8wqymd',
           maxFiles: 1,
           resourceType: 'auto',
           clientAllowedFormats: ['image', 'video']

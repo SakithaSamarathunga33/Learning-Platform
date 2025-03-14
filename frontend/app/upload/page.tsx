@@ -42,15 +42,19 @@ export default function UploadPage() {
 
           <CldUploadWidget
             uploadPreset="ml_default"
-            onUpload={(result, widget) => {
-              const error = result?.error;
-              if (error) {
-                console.error('Upload error:', error);
+            options={{
+              cloudName: 'drm8wqymd',
+              maxFiles: 1,
+              resourceType: 'auto',
+              clientAllowedFormats: ['image', 'video']
+            }}
+            onUpload={(result) => {
+              if (!result || result.event !== 'success' || !result.info) {
+                console.error('Upload failed or was cancelled');
                 return;
               }
-
+              
               const uploadResult = result as UploadResponse;
-              if (!uploadResult || !uploadResult.info) return;
 
               setResource(uploadResult.info.public_id);
               const info = uploadResult.info;

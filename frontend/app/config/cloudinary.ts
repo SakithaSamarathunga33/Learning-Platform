@@ -2,4 +2,4 @@ export const cloudinaryConfig = {
   uploadPreset: 'ml_default',
 };
 
-export const cloudName = 'drlfav5jz';
+export const cloudName = 'drm8wqymd';

@@ -32,7 +32,22 @@ public class UserService {
             User existingUser = user.get();
             existingUser.setUsername(userDetails.getUsername());
             existingUser.setEmail(userDetails.getEmail());
-            existingUser.setPassword(userDetails.getPassword());
+            
+            // Only update password if it's provided and not empty
+            if (userDetails.getPassword() != null && !userDetails.getPassword().isEmpty()) {
+                existingUser.setPassword(userDetails.getPassword());
+            }
+            
+            // Update name if provided
+            if (userDetails.getName() != null) {
+                existingUser.setName(userDetails.getName());
+            }
+            
+            // Update profile picture if provided
+            if (userDetails.getPicture() != null) {
+                existingUser.setPicture(userDetails.getPicture());
+            }
+            
             return userRepository.save(existingUser);
         }
         return null;

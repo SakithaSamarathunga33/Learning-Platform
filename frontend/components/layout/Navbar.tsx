@@ -4,8 +4,17 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 
+interface User {
+  id: string;
+  username: string;
+  email: string;
+  name?: string;
+  picture?: string;
+  roles?: string[];
+}
+
 export default function Navbar() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -94,10 +103,16 @@ export default function Navbar() {
                   </Link>
                 )}
                 <div className="flex items-center space-x-2">
-                  <div className="h-8 w-8 rounded-full bg-[#4169E1] flex items-center justify-center text-white font-medium">
-                    {user.username?.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="text-sm font-medium text-gray-700">{user.username}</span>
+                  <Link href="/profile" className="flex items-center space-x-2 group">
+                    <div className="h-8 w-8 rounded-full bg-[#4169E1] flex items-center justify-center text-white font-medium overflow-hidden group-hover:ring-2 group-hover:ring-[#4169E1]/30 transition-all duration-200">
+                      {user.picture ? (
+                        <img src={user.picture} alt={user.username} className="w-full h-full object-cover" />
+                      ) : (
+                        user.username?.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 group-hover:text-[#4169E1] transition-colors duration-200">{user.username}</span>
+                  </Link>
                   <button
                     onClick={handleLogout}
                     className="ml-2 px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors duration-200"
@@ -155,4 +170,4 @@ export default function Navbar() {
       </div>
     </nav>
   );
-} 
+}
