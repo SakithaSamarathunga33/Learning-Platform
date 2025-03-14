@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import java.security.Key;
 import java.util.Date;
 import jakarta.annotation.PostConstruct;
+import io.jsonwebtoken.SignatureAlgorithm;
 
 @Component
 public class JwtUtils {
@@ -26,8 +27,13 @@ public class JwtUtils {
 
     @PostConstruct
     public void init() {
-        // Generate a secure key for HS512
-        this.key = Keys.secretKeyFor(SignatureAlgorithm.HS512);
+        try {
+            // Generate a secure key using the secret as a seed
+            this.key = Keys.secretKeyFor(SignatureAlgorithm.HS512);
+        } catch (Exception e) {
+            logger.error("Error initializing JWT key: {}", e.getMessage());
+            throw new RuntimeException("Failed to initialize JWT key", e);
+        }
     }
 
     public String generateJwtToken(Authentication authentication) {

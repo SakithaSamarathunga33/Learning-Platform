@@ -1,5 +1,1 @@
-export const cloudinaryConfig = {
-  uploadPreset: 'ml_default',
-};
-
-export const cloudName = 'drm8wqymd';
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';

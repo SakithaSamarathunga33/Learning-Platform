@@ -1,13 +1,29 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactStrictMode: true,
+  devIndicators: false,
   images: {
-    domains: ['res.cloudinary.com', 'images.unsplash.com'],
+    domains: [
+      'images.unsplash.com',
+      'res.cloudinary.com',
+      'lh3.googleusercontent.com'
+    ],
   },
-  env: {
-    NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: 'drm8wqymd'
+  // Uncomment if needed for testing in development
+  // output: 'standalone',
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin-allow-popups',
+          },
+        ],
+      },
+    ];
   },
-  // Completely disable all development indicators and overlays
-  devIndicators: false
 };
 
 module.exports = nextConfig;

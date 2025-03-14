@@ -24,6 +24,7 @@ public class User implements UserDetails {
     private String provider;
     private Set<String> roles;
     private boolean enabled;
+    private String bio;
 
     public String getId() {
         return id;
@@ -95,6 +96,14 @@ public class User implements UserDetails {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public String getBio() {
+        return bio;
+    }
+
+    public void setBio(String bio) {
+        this.bio = bio;
     }
 
     @Override

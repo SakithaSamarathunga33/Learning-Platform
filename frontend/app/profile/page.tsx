@@ -2,37 +2,32 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { CldUploadWidget } from 'next-cloudinary';
-import Image from 'next/image';
-import Link from 'next/link';
+import Navbar from '@/components/layout/Navbar';
+import ImageUpload from '@/components/ImageUpload';
 
 interface User {
   id: string;
   username: string;
   email: string;
-  name: string;
-  picture: string;
+  picture?: string;
+  name?: string;
+  provider?: string;
   roles: string[];
 }
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
-  const [updateSuccess, setUpdateSuccess] = useState(false);
-  const [updateError, setUpdateError] = useState('');
-  const [editMode, setEditMode] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    username: ''
-  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedUser, setEditedUser] = useState<User | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
-
+    
     if (!token) {
       router.push('/login');
       return;
@@ -41,379 +36,304 @@ export default function ProfilePage() {
     if (userStr) {
       try {
         const userData = JSON.parse(userStr);
-        setUser(userData);
-        setFormData({
+        // Ensure we have all required fields with proper defaults
+        const completeUserData = {
+          ...userData,
           name: userData.name || '',
+          picture: userData.picture || '',
+          username: userData.username || '',
           email: userData.email || '',
-          username: userData.username || ''
-        });
-        setLoading(false);
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-        router.push('/login');
+          provider: userData.provider || 'local',
+          roles: userData.roles || []
+        };
+        setUser(completeUserData);
+        setEditedUser(completeUserData);
+        setIsLoading(false);
+      } catch (err) {
+        console.error('Error parsing user data:', err);
+        fetchUserData(token);
       }
     } else {
-      router.push('/login');
+      fetchUserData(token);
     }
   }, [router]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleProfilePhotoUpload = async (result: any) => {
-    if (!result || result.event !== 'success' || !result.info) {
-      console.error('Upload failed or was cancelled');
-      return;
-    }
-
-    const { secure_url } = result.info;
-    
-    if (!user) return;
-    
+  const fetchUserData = async (token: string) => {
     try {
-      setUpdating(true);
-      setUpdateSuccess(false);
-      setUpdateError('');
-      
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
+      const response = await fetch('http://localhost:8080/api/auth/current-user', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data');
       }
 
-      // Update user profile with new picture
-      const response = await fetch(`http://localhost:8080/api/users/${user.id}`, {
+      const data = await response.json();
+      // Ensure we have all required fields with proper defaults
+      const userData = {
+        id: data.id || '',
+        username: data.username || '',
+        email: data.email || '',
+        name: data.name || '',
+        picture: data.picture || '',
+        provider: data.provider || 'local',
+        roles: data.roles || []
+      };
+      
+      setUser(userData);
+      setEditedUser(userData);
+      // Update localStorage with complete user data
+      localStorage.setItem('user', JSON.stringify(userData));
+    } catch (err) {
+      setError('Failed to load user data');
+      console.error('Error fetching user data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleImageUpload = async (imageUrl: string) => {
+    if (!user) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Authentication token not found. Please log in again.');
+        return;
+      }
+      
+      const response = await fetch(`http://localhost:8080/api/users/${user.id}/picture`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          ...user,
-          picture: secure_url
-        })
+        body: JSON.stringify({ pictureUrl: imageUrl })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update profile picture');
+        const errorText = await response.text();
+        throw new Error(`Failed to update profile picture: ${errorText}`);
       }
 
       const updatedUser = await response.json();
+      // Ensure we have all required fields
+      const completeUserData = {
+        ...updatedUser,
+        name: updatedUser.name || '',
+        picture: updatedUser.picture || '',
+        username: updatedUser.username || '',
+        email: updatedUser.email || '',
+        provider: updatedUser.provider || 'local'
+      };
       
-      // Update local storage with updated user data
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      
-      // Update state
-      setUser(updatedUser);
-      setUpdateSuccess(true);
-      
-      // Show success message temporarily
-      setTimeout(() => {
-        setUpdateSuccess(false);
-      }, 3000);
-    } catch (error) {
-      console.error('Error updating profile picture:', error);
-      setUpdateError('Failed to update profile picture. Please try again.');
-    } finally {
-      setUpdating(false);
+      setUser(completeUserData);
+      setEditedUser(completeUserData);
+      localStorage.setItem('user', JSON.stringify(completeUserData));
+      setSuccess('Profile picture updated successfully!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Error updating profile picture:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update profile picture');
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!editedUser) return;
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setEditedUser(prev => prev ? { ...prev, [name]: value } : null);
   };
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!user) return;
-    
+    if (!editedUser || !user) return;
+
     try {
-      setUpdating(true);
-      setUpdateSuccess(false);
-      setUpdateError('');
-      
       const token = localStorage.getItem('token');
       if (!token) {
-        throw new Error('No authentication token found');
+        setError('Authentication token not found. Please log in again.');
+        return;
       }
 
-      // Update user profile
+      // Create an object with only the changed fields
+      const updatedFields: Partial<User> = {};
+      
+      // For Google users, only allow updating name and picture
+      if (user.provider === 'google') {
+        if (editedUser.name !== user.name) {
+          updatedFields.name = editedUser.name;
+        }
+      } else {
+        // For regular users, allow updating username and name
+        if (editedUser.username !== user.username) {
+          updatedFields.username = editedUser.username;
+        }
+        if (editedUser.name !== user.name) {
+          updatedFields.name = editedUser.name;
+        }
+      }
+
+      // If no fields have changed, don't make the request
+      if (Object.keys(updatedFields).length === 0) {
+        setIsEditing(false);
+        return;
+      }
+
       const response = await fetch(`http://localhost:8080/api/users/${user.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          ...user,
-          name: formData.name,
-          email: formData.email,
-          username: formData.username
-        })
+        body: JSON.stringify(updatedFields)
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update profile');
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to update user details');
       }
 
       const updatedUser = await response.json();
+      // Ensure we have all required fields
+      const completeUserData = {
+        ...updatedUser,
+        name: updatedUser.name || '',
+        picture: updatedUser.picture || '',
+        username: updatedUser.username || '',
+        email: updatedUser.email || '',
+        provider: updatedUser.provider || 'local'
+      };
       
-      // Update local storage with updated user data
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      
-      // Update state
-      setUser(updatedUser);
-      setUpdateSuccess(true);
-      setEditMode(false);
-      
-      // Show success message temporarily
-      setTimeout(() => {
-        setUpdateSuccess(false);
-      }, 3000);
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      setUpdateError('Failed to update profile. Please try again.');
-    } finally {
-      setUpdating(false);
+      setUser(completeUserData);
+      setEditedUser(completeUserData);
+      localStorage.setItem('user', JSON.stringify(completeUserData));
+      setIsEditing(false);
+      setSuccess('Profile updated successfully!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Error updating user details:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update user details');
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen pt-16 flex justify-center items-center">
-        <div className="animate-pulse text-gray-600">Loading...</div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+        <Navbar />
+        <div className="flex justify-center items-center min-h-[calc(100vh-4rem)] mt-16">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4169E1]"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pt-20 pb-10 bg-gradient-to-b from-blue-50 to-white">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8 flex justify-between items-center">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-[#4169E1] to-[#2AB7CA] bg-clip-text text-transparent">
-            My Profile
-          </h1>
-          <div className="flex space-x-4">
-            <Link 
-              href="/dashboard" 
-              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-[#4169E1] border border-gray-300 rounded-lg hover:border-[#4169E1] transition-colors duration-200"
-            >
-              Dashboard
-            </Link>
-            <Link 
-              href="/upload" 
-              className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#4169E1] to-[#2AB7CA] rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-            >
-              Upload Media
-            </Link>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+      <Navbar />
+      <div className="container mx-auto px-4 py-8 mt-16">
+        <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg p-8">
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">Profile Settings</h1>
+            {!isEditing && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Edit Profile
+              </button>
+            )}
           </div>
-        </div>
 
-        {/* Main Content */}
-        <div className="bg-white rounded-xl shadow-md overflow-hidden animate-fade-in-up">
-          <div className="p-8">
-            <div className="flex flex-col md:flex-row gap-8">
-              {/* Profile Photo Section */}
-              <div className="flex flex-col items-center">
-                <div className="relative w-40 h-40 rounded-full overflow-hidden bg-gray-100 mb-6 shadow-md border-4 border-white">
-                  {user?.picture ? (
-                    <Image 
-                      src={user.picture} 
-                      alt={user.username} 
-                      fill 
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-r from-[#4169E1] to-[#2AB7CA] text-white text-5xl font-bold">
-                      {user?.username?.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+          {error && (
+            <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
+              <p className="text-red-700">{error}</p>
+            </div>
+          )}
+
+          {success && (
+            <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-md">
+              <p className="text-green-700">{success}</p>
+            </div>
+          )}
+
+          <div className="flex flex-col items-center mb-8">
+            <div className="relative">
+              <ImageUpload
+                currentImage={user?.picture}
+                onImageUpload={handleImageUpload}
+                className="mb-4"
+              />
+              <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
+                <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+                  Change Photo
                 </div>
-                
-                <CldUploadWidget
-                  uploadPreset="ml_default"
-                  options={{
-                    cloudName: 'drm8wqymd',
-                    maxFiles: 1,
-                    resourceType: 'image',
-                    clientAllowedFormats: ['image']
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 mt-4">
+              Click to upload a new profile picture
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Username</label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  name="username"
+                  value={editedUser?.username || ''}
+                  onChange={handleInputChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+              ) : (
+                <p className="mt-1 p-3 bg-gray-50 rounded-lg">{user?.username}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Email</label>
+              <p className="mt-1 p-3 bg-gray-50 rounded-lg">{user?.email}</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Name</label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  name="name"
+                  value={editedUser?.name || ''}
+                  onChange={handleInputChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+              ) : (
+                <p className="mt-1 p-3 bg-gray-50 rounded-lg">{user?.name || 'Not set'}</p>
+              )}
+            </div>
+
+            {isEditing && (
+              <div className="flex justify-end space-x-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditedUser(user);
+                    setError('');
                   }}
-                  onUpload={handleProfilePhotoUpload}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  {({ open }) => (
-                    <button
-                      onClick={() => open()}
-                      disabled={updating}
-                      className={`text-sm font-medium px-5 py-2.5 rounded-lg shadow-sm ${
-                        updating 
-                          ? 'bg-gray-300 cursor-not-allowed' 
-                          : 'bg-gradient-to-r from-[#4169E1] to-[#2AB7CA] text-white hover:shadow-md transition-all duration-200'
-                      }`}
-                    >
-                      {updating ? 'Updating...' : 'Change Photo'}
-                    </button>
-                  )}
-                </CldUploadWidget>
-                
-                {updateSuccess && (
-                  <div className="mt-4 p-2 bg-green-50 text-green-600 text-sm rounded-lg border border-green-200">
-                    Profile updated successfully!
-                  </div>
-                )}
-                
-                {updateError && (
-                  <div className="mt-4 p-2 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200">
-                    {updateError}
-                  </div>
-                )}
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Save Changes
+                </button>
               </div>
-              
-              {/* User Info Section */}
-              <div className="flex-1">
-                {editMode ? (
-                  <form onSubmit={handleSaveProfile} className="space-y-6">
-                    <div>
-                      <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                        Full Name
-                      </label>
-                      <input
-                        type="text"
-                        id="name"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#4169E1] focus:border-[#4169E1] transition-colors duration-200"
-                        placeholder="Your full name"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-                        Username
-                      </label>
-                      <input
-                        type="text"
-                        id="username"
-                        name="username"
-                        value={formData.username}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#4169E1] focus:border-[#4169E1] transition-colors duration-200"
-                        placeholder="Username"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                        Email Address
-                      </label>
-                      <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#4169E1] focus:border-[#4169E1] transition-colors duration-200"
-                        placeholder="Your email address"
-                      />
-                    </div>
-                    
-                    <div className="flex space-x-4 pt-4">
-                      <button
-                        type="submit"
-                        disabled={updating}
-                        className={`px-5 py-2.5 rounded-lg shadow-sm ${
-                          updating 
-                            ? 'bg-gray-300 cursor-not-allowed' 
-                            : 'bg-gradient-to-r from-[#4169E1] to-[#2AB7CA] text-white hover:shadow-md transition-all duration-200'
-                        }`}
-                      >
-                        {updating ? 'Saving...' : 'Save Changes'}
-                      </button>
-                      
-                      <button
-                        type="button"
-                        onClick={() => setEditMode(false)}
-                        className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:text-[#4169E1] hover:border-[#4169E1] transition-colors duration-200"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <div>
-                    <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-2xl font-bold text-gray-900">
-                        {user?.name || user?.username}
-                      </h2>
-                      <button
-                        onClick={() => setEditMode(true)}
-                        className="px-4 py-2 text-sm font-medium text-[#4169E1] border border-[#4169E1] rounded-lg hover:bg-[#4169E1]/5 transition-colors duration-200"
-                      >
-                        Edit Profile
-                      </button>
-                    </div>
-                    
-                    <div className="bg-gradient-to-r from-[#4169E1]/10 to-[#2AB7CA]/10 p-4 rounded-lg mb-6">
-                      <p className="text-gray-600">@{user?.username}</p>
-                      <p className="text-gray-600">{user?.email}</p>
-                    </div>
-                    
-                    <div className="space-y-6">
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-500 mb-2">Account Type</h3>
-                        <div className="flex space-x-2">
-                          {user?.roles?.map((role, index) => (
-                            <span 
-                              key={index}
-                              className="px-3 py-1 bg-gradient-to-r from-[#4169E1]/20 to-[#2AB7CA]/20 text-[#4169E1] text-sm font-medium rounded-full"
-                            >
-                              {role.replace('ROLE_', '')}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-500 mb-2">Account ID</h3>
-                        <p className="text-gray-700 font-mono text-sm bg-gray-50 p-2 rounded border border-gray-200">
-                          {user?.id}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* User Media Section */}
-        <div className="mt-8 bg-white rounded-xl shadow-md overflow-hidden animate-fade-in-up">
-          <div className="p-8">
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-[#4169E1] to-[#2AB7CA] bg-clip-text text-transparent mb-6">
-              My Media
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* This would be populated with the user's media */}
-              <div className="bg-gray-50 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 border border-gray-100">
-                <div className="h-48 bg-gray-200 flex items-center justify-center">
-                  <p className="text-gray-400">No media yet</p>
-                </div>
-                <div className="p-4">
-                  <Link 
-                    href="/upload" 
-                    className="text-[#4169E1] hover:underline font-medium"
-                  >
-                    Upload your first media
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
+            )}
+          </form>
         </div>
       </div>
     </div>

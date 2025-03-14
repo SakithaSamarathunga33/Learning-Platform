@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
+import Image from 'next/image';
 
 interface User {
   id: string;
@@ -17,6 +18,7 @@ export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
   const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -28,6 +30,25 @@ export default function Navbar() {
         console.error('Error parsing user data:', error);
       }
     }
+  }, []);
+
+  // Add a listener for storage events to update the navbar when user data changes
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'user' && e.newValue) {
+        try {
+          const userData = JSON.parse(e.newValue);
+          setUser(userData);
+        } catch (error) {
+          console.error('Error parsing updated user data:', error);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -93,33 +114,52 @@ export default function Navbar() {
           {/* User Menu - Right */}
           <div className="flex items-center space-x-4">
             {user ? (
-              <div className="flex items-center space-x-4">
-                {user.roles?.includes('ROLE_ADMIN') && (
-                  <Link
-                    href="/admin"
-                    className="text-sm font-medium text-gray-700 hover:text-[#4169E1] transition-colors duration-200"
-                  >
-                    Admin Dashboard
-                  </Link>
-                )}
-                <div className="flex items-center space-x-2">
-                  <Link href="/profile" className="flex items-center space-x-2 group">
-                    <div className="h-8 w-8 rounded-full bg-[#4169E1] flex items-center justify-center text-white font-medium overflow-hidden group-hover:ring-2 group-hover:ring-[#4169E1]/30 transition-all duration-200">
-                      {user.picture ? (
-                        <img src={user.picture} alt={user.username} className="w-full h-full object-cover" />
-                      ) : (
-                        user.username?.charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    <span className="text-sm font-medium text-gray-700 group-hover:text-[#4169E1] transition-colors duration-200">{user.username}</span>
-                  </Link>
+              <div className="relative ml-3">
+                <div>
                   <button
-                    onClick={handleLogout}
-                    className="ml-2 px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors duration-200"
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="flex items-center max-w-xs text-sm bg-gray-800 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white"
                   >
-                    Logout
+                    <span className="sr-only">Open user menu</span>
+                    {user?.picture ? (
+                      <Image
+                        className="h-8 w-8 rounded-full"
+                        src={user.picture}
+                        alt=""
+                        width={32}
+                        height={32}
+                      />
+                    ) : (
+                      <div className="h-8 w-8 rounded-full bg-gray-500 flex items-center justify-center text-white">
+                        {user?.username?.charAt(0).toUpperCase()}
+                      </div>
+                    )}
                   </button>
                 </div>
+                {isOpen && (
+                  <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
+                    <Link
+                      href="/profile"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Your Profile
+                    </Link>
+                    {user?.roles?.includes('ROLE_ADMIN') && (
+                      <Link
+                        href="/admin"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        Admin Dashboard
+                      </Link>
+                    )}
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <Link

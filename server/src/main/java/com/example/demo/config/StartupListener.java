@@ -1,31 +1,35 @@
 package com.example.demo.config;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.event.ApplicationStartedEvent;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
-import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 @Component
 public class StartupListener {
-    
-    @Autowired
-    private MongoTemplate mongoTemplate;
-    
-    @EventListener(ApplicationStartedEvent.class)
-    public void onApplicationStarted() {
-        System.out.print("\033[H\033[2J");  // Clear screen
-        System.out.flush();
-        
-        System.out.println("\n\033[32m✨ Server is ready!\033[0m");
-        System.out.println("\033[32m📡 Tomcat started on port 8080\033[0m");
-        
+
+    @Value("${file.upload-dir:uploads}")
+    private String uploadDir;
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void onApplicationEvent() {
+        createUploadDirectory();
+    }
+
+    private void createUploadDirectory() {
         try {
-            // Test MongoDB connection
-            mongoTemplate.getDb().runCommand(new org.bson.Document("ping", 1));
-            System.out.println("\033[32m🍃 MongoDB connected successfully\033[0m\n");
-        } catch (Exception e) {
-            System.out.println("\033[31m❌ MongoDB connection failed: " + e.getMessage() + "\033[0m\n");
+            Path uploadPath = Paths.get(uploadDir);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+                System.out.println("Created upload directory: " + uploadPath.toAbsolutePath());
+            }
+        } catch (IOException e) {
+            System.err.println("Failed to create upload directory: " + e.getMessage());
         }
     }
 }

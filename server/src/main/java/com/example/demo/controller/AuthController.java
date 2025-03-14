@@ -72,36 +72,48 @@ public class AuthController {
                     .body(Collections.singletonMap("message", "User not found"));
             }
 
-            Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(username, password)
-            );
-
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-            String jwt = jwtUtils.generateJwtToken(authentication);
-
             User user = userOptional.get();
-            Map<String, Object> response = new HashMap<>();
-            response.put("token", jwt);
-            response.put("user", Map.of(
-                "id", user.getId(),
-                "username", user.getUsername(),
-                "email", user.getEmail(),
-                "roles", user.getRoles()
-            ));
+            if (!user.isEnabled()) {
+                logger.error("User account is disabled: {}", username);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Collections.singletonMap("message", "Account is disabled"));
+            }
 
-            logger.info("Login successful for user: {} with roles: {}", username, user.getRoles());
-            return ResponseEntity.ok(response);
+            try {
+                Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(username, password)
+                );
 
-        } catch (BadCredentialsException e) {
-            logger.error("Invalid credentials for user: {}", username);
-            return ResponseEntity
-                .status(HttpStatus.UNAUTHORIZED)
-                .body(Collections.singletonMap("message", "Invalid username or password"));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+                String jwt = jwtUtils.generateJwtToken(authentication);
+
+                Map<String, Object> response = new HashMap<>();
+                response.put("token", jwt);
+                
+                Map<String, Object> userMap = new HashMap<>();
+                userMap.put("id", user.getId());
+                userMap.put("username", user.getUsername());
+                userMap.put("email", user.getEmail());
+                userMap.put("name", user.getName() != null ? user.getName() : "");
+                userMap.put("picture", user.getPicture() != null ? user.getPicture() : "");
+                userMap.put("provider", user.getProvider() != null ? user.getProvider() : "LOCAL");
+                userMap.put("roles", user.getRoles() != null ? user.getRoles() : Collections.emptySet());
+                
+                response.put("user", userMap);
+
+                logger.info("Login successful for user: {} with roles: {}", username, user.getRoles());
+                return ResponseEntity.ok(response);
+            } catch (BadCredentialsException e) {
+                logger.error("Invalid credentials for user: {}", username);
+                return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(Collections.singletonMap("message", "Invalid username or password"));
+            }
         } catch (Exception e) {
-            logger.error("Login error for user {}: {}", username, e.getMessage());
+            logger.error("Login error for user {}: {}", username, e.getMessage(), e);
             return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Collections.singletonMap("message", "An error occurred during login"));
+                .body(Collections.singletonMap("message", "An error occurred during login: " + e.getMessage()));
         }
     }
 
@@ -152,6 +164,7 @@ public class AuthController {
             String encodedPassword = passwordEncoder.encode(rawPassword);
             adminUser.setPassword(encodedPassword);
             adminUser.setEmail("admin@example.com");
+            adminUser.setName("Administrator");
             adminUser.setProvider("LOCAL");
             adminUser.setRoles(Collections.singleton("ROLE_ADMIN"));
             adminUser.setEnabled(true);
@@ -159,11 +172,16 @@ public class AuthController {
             User savedUser = userRepository.save(adminUser);
             logger.info("Admin user created successfully with username: {} and encoded password", savedUser.getUsername());
             
-            return ResponseEntity.ok("Admin user created successfully");
+            return ResponseEntity.ok(Map.of(
+                "message", "Admin user created successfully",
+                "username", savedUser.getUsername(),
+                "email", savedUser.getEmail(),
+                "roles", savedUser.getRoles()
+            ));
         } catch (Exception e) {
             logger.error("Error creating admin user: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("Error creating admin user: " + e.getMessage());
+                .body(Map.of("message", "Error creating admin user: " + e.getMessage()));
         }
     }
 
@@ -213,6 +231,9 @@ public class AuthController {
             response.put("id", user.getId());
             response.put("username", user.getUsername());
             response.put("email", user.getEmail());
+            response.put("name", user.getName());
+            response.put("picture", user.getPicture());
+            response.put("provider", user.getProvider());
             response.put("roles", user.getRoles());
             response.put("enabled", user.isEnabled());
             
