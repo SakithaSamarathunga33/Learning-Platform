@@ -1,14 +1,11 @@
 'use client';
 
-import Navbar from '@/components/layout/Navbar';
 import Image from 'next/image';
 import Link from 'next/link';
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      
       {/* Hero Section */}
       <div className="relative bg-white pt-16">
         <div className="w-full">

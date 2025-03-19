@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import Navbar from '@/components/layout/Navbar';
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -67,7 +66,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar />
       <div className="flex min-h-[calc(100vh-4rem)] mt-16">
         {/* Left side - Image and branding */}
         <div className="hidden md:flex md:w-1/2 relative">

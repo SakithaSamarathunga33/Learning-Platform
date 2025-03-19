@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Navbar from '@/components/layout/Navbar';
 import ImageUpload from '@/components/ImageUpload';
 
 interface User {
@@ -221,9 +220,109 @@ export default function ProfilePage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
-        <Navbar />
-        <div className="flex justify-center items-center min-h-[calc(100vh-4rem)] mt-16">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4169E1]"></div>
+        <div className="container mx-auto px-4 py-8 mt-16">
+          <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg p-8">
+            <div className="flex justify-between items-center mb-8">
+              <h1 className="text-3xl font-bold text-gray-900">Profile Settings</h1>
+              {!isEditing && (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Edit Profile
+                </button>
+              )}
+            </div>
+
+            {error && (
+              <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
+                <p className="text-red-700">{error}</p>
+              </div>
+            )}
+
+            {success && (
+              <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-md">
+                <p className="text-green-700">{success}</p>
+              </div>
+            )}
+
+            <div className="flex flex-col items-center mb-8">
+              <div className="relative">
+                <ImageUpload
+                  currentImage={user?.picture}
+                  onImageUpload={handleImageUpload}
+                  className="mb-4"
+                />
+                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
+                  <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+                    Change Photo
+                  </div>
+                </div>
+              </div>
+              <p className="text-sm text-gray-500 mt-4">
+                Click to upload a new profile picture
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Username</label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    name="username"
+                    value={editedUser?.username || ''}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                ) : (
+                  <p className="mt-1 p-3 bg-gray-50 rounded-lg">{user?.username}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <p className="mt-1 p-3 bg-gray-50 rounded-lg">{user?.email}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Name</label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    name="name"
+                    value={editedUser?.name || ''}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                ) : (
+                  <p className="mt-1 p-3 bg-gray-50 rounded-lg">{user?.name || 'Not set'}</p>
+                )}
+              </div>
+
+              {isEditing && (
+                <div className="flex justify-end space-x-4 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditedUser(user);
+                      setError('');
+                    }}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              )}
+            </form>
+          </div>
         </div>
       </div>
     );
@@ -231,7 +330,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
-      <Navbar />
       <div className="container mx-auto px-4 py-8 mt-16">
         <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg p-8">
           <div className="flex justify-between items-center mb-8">
