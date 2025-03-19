@@ -70,7 +70,7 @@ PAF2 is a comprehensive learning platform that connects students with courses, m
 git clone (https://github.com/SakithaSamarathunga33/Learning-Platform.git)
 
 # Navigate to the server directory
-cd PAF2/server
+cd server
 
 # Install dependencies with Maven
 mvn clean install
@@ -82,7 +82,7 @@ mvn spring-boot:run
 ### Frontend Setup
 ```bash
 # Navigate to the frontend directory
-cd PAF2/frontend
+cd frontend
 
 # Install frontend dependencies
 npm install
