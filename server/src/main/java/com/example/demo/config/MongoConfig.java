@@ -22,9 +22,10 @@ public class MongoConfig {
         try {
             Document pingCommand = new Document("ping", 1);
             mongoTemplate.getDb().runCommand(pingCommand);
-            logger.info("MongoDB connected successfully");
+            String dbName = mongoTemplate.getDb().getName();
+            logger.info("MongoDB connected successfully to database: " + dbName);
         } catch (Exception e) {
-            logger.error("MongoDB connection failed: " + e.getMessage());
+            logger.error("MongoDB connection failed");
         }
     }
 }
