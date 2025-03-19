@@ -67,7 +67,7 @@ PAF2 is a comprehensive learning platform that connects students with courses, m
 ### Backend Setup
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/PAF2.git
+git clone (https://github.com/SakithaSamarathunga33/Learning-Platform.git)
 
 # Navigate to the server directory
 cd PAF2/server
@@ -184,15 +184,6 @@ NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your_upload_preset
 - **AI-Powered Recommendations**: Personalized course suggestions
 - **Live Sessions**: Real-time virtual classroom experiences
 
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 📧 Contact
-
-Your Name – your.email@example.com
-
-Project Link: https://github.com/yourusername/PAF2
 
 ---
 
