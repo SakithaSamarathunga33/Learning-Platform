@@ -1,4 +1,6 @@
 @echo off
-echo Server is starting...
+echo =================================
+echo    ### Server is starting... ###
+echo =================================
 echo.
 mvn spring-boot:run 
