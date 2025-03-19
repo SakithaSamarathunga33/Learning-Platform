@@ -23,9 +23,9 @@ public class MongoConfig {
             Document pingCommand = new Document("ping", 1);
             mongoTemplate.getDb().runCommand(pingCommand);
             String dbName = mongoTemplate.getDb().getName();
-            logger.info("MongoDB connected successfully to database: " + dbName);
+            logger.info("[DB] MongoDB connected successfully to database: " + dbName);
         } catch (Exception e) {
-            logger.error("MongoDB connection failed");
+            logger.error("[!] MongoDB connection failed");
         }
     }
 }

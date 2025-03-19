@@ -17,6 +17,6 @@ public class ServerStartupListener {
     
     @EventListener(ApplicationStartedEvent.class)
     public void onApplicationStarted() {
-        logger.info("Server started on port: " + serverPort);
+        logger.info("[+] Server started on port: " + serverPort);
     }
 } 
