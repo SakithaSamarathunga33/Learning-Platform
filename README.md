@@ -1,4 +1,4 @@
-# 🎓 PAF2 Learning Platform
+# 🎓 Learning Platform
 
 <div align="center">
   <img src="https://img.shields.io/badge/version-1.0.0-blue.svg?cacheSeconds=2592000" />
