@@ -21,7 +21,7 @@
 
 ## 📋 Overview
 
-PAF2 is a comprehensive learning platform that connects students with courses, mentors, and educational resources. The application helps users browse available courses, track their learning progress, and engage with a community of experts. Administrators can manage users, content, and gain insights through analytics.
+This is a comprehensive learning platform that connects students with courses, mentors, and educational resources. The application helps users browse available courses, track their learning progress, and engage with a community of experts. Administrators can manage users, content, and gain insights through analytics.
 
 ## ✨ Features
 
