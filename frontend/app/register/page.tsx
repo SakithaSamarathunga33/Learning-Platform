@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import Navbar from '@/components/layout/Navbar';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -67,7 +66,6 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar />
       <div className="flex min-h-[calc(100vh-4rem)] mt-16">
         {/* Left side - Image and branding */}
         <div className="hidden md:flex md:w-1/2 relative">
