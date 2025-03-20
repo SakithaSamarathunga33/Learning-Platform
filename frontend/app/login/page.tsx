@@ -47,6 +47,8 @@ export default function LoginPage() {
       if (response.ok) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        // Dispatch custom event to update navbar
+        window.dispatchEvent(new Event('userDataChanged'));
         
         if (data.user.roles && data.user.roles.includes('ROLE_ADMIN')) {
           console.log('Admin login detected, redirecting to admin dashboard');
