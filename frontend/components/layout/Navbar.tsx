@@ -20,7 +20,8 @@ export default function Navbar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
+  // Function to update user data
+  const updateUserData = () => {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       try {
@@ -29,31 +30,44 @@ export default function Navbar() {
       } catch (error) {
         console.error('Error parsing user data:', error);
       }
+    } else {
+      setUser(null);
     }
+  };
+
+  // Initial user data load
+  useEffect(() => {
+    updateUserData();
   }, []);
 
-  // Add a listener for storage events to update the navbar when user data changes
+  // Listen for user data changes
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'user' && e.newValue) {
-        try {
-          const userData = JSON.parse(e.newValue);
-          setUser(userData);
-        } catch (error) {
-          console.error('Error parsing updated user data:', error);
-        }
+      if (e.key === 'user') {
+        updateUserData();
       }
     };
 
+    // Listen for storage events from other tabs/windows
     window.addEventListener('storage', handleStorageChange);
+
+    // Listen for custom events from the same window
+    const handleCustomStorageChange = () => {
+      updateUserData();
+    };
+    window.addEventListener('userDataChanged', handleCustomStorageChange);
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('userDataChanged', handleCustomStorageChange);
     };
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    // Dispatch custom event to update navbar
+    window.dispatchEvent(new Event('userDataChanged'));
     router.push('/login');
   };
 
@@ -79,12 +93,22 @@ export default function Navbar() {
           <div className="hidden md:flex flex-1 justify-center">
             <div className="flex space-x-8">
               <Link
+                href="/"
+                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                  pathname === '/'
+                    ? 'text-[#2AB7CA] border-b-2 border-[#2AB7CA]'
+                    : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Home
+              </Link>
+              <Link
                 href="/courses"
-                className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg ${
+                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
                   pathname === '/courses'
-                    ? 'text-white bg-[#4169E1]'
-                    : 'text-gray-500 hover:text-[#4169E1] hover:bg-[#4169E1]/5'
-                } transition-all duration-200`}
+                    ? 'text-[#2AB7CA] border-b-2 border-[#2AB7CA]'
+                    : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
               >
                 Courses
               </Link>
@@ -176,6 +200,16 @@ export default function Navbar() {
       {/* Mobile Navigation */}
       <div className="md:hidden">
         <div className="px-2 pt-2 pb-3 space-y-1">
+          <Link
+            href="/"
+            className={`block px-3 py-2 rounded-lg text-base font-medium ${
+              pathname === '/'
+                ? 'text-white bg-[#4169E1]'
+                : 'text-gray-500 hover:text-[#4169E1] hover:bg-[#4169E1]/5'
+            } transition-all duration-200`}
+          >
+            Home
+          </Link>
           <Link
             href="/courses"
             className={`block px-3 py-2 rounded-lg text-base font-medium ${

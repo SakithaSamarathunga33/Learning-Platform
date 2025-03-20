@@ -13,12 +13,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const isAdminPage = pathname?.startsWith('/admin');
+  const isAdminRoute = pathname?.startsWith('/admin');
 
   return (
     <html lang="en">
       <body className={inter.className}>
-        {!isAdminPage && <Navbar />}
+        {!isAdminRoute && <Navbar />}
         {children}
       </body>
     </html>
