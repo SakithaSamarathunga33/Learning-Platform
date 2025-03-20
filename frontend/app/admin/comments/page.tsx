@@ -165,7 +165,7 @@ const AdminCommentsPage = () => {
           }
         } catch (parseError) {
           console.error('Failed to parse response:', parseError);
-        }
+        }//
         
         setComments(Array.isArray(data) ? data : []);
 
