@@ -113,6 +113,16 @@ export default function Navbar() {
                 Courses
               </Link>
               <Link
+                href="/about"
+                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                  pathname === '/about'
+                    ? 'text-[#2AB7CA] border-b-2 border-[#2AB7CA]'
+                    : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                About Us
+              </Link>
+              <Link
                 href="/mentors"
                 className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg ${
                   pathname === '/mentors'
@@ -147,23 +157,36 @@ export default function Navbar() {
                     <span className="sr-only">Open user menu</span>
                     {user?.picture ? (
                       <Image
-                        className="h-8 w-8 rounded-full"
+                        className="h-8 w-8 rounded-full object-cover"
                         src={user.picture}
-                        alt=""
+                        alt={`${user.username}'s profile`}
                         width={32}
                         height={32}
+                        unoptimized
+                        onError={(e) => {
+                          // On error, switch to fallback avatar
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null; // Prevent infinite loop
+                          target.style.display = 'none';
+                          const fallback = target.parentElement?.querySelector('.fallback-avatar') as HTMLDivElement;
+                          if (fallback) {
+                            fallback.style.display = 'flex';
+                          }
+                        }}
                       />
-                    ) : (
-                      <div className="h-8 w-8 rounded-full bg-gray-500 flex items-center justify-center text-white">
-                        {user?.username?.charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                    ) : null}
+                    <div
+                      className={`h-8 w-8 rounded-full bg-gradient-to-r from-[#4169E1] to-[#2AB7CA] flex items-center justify-center text-white fallback-avatar ${user?.picture ? 'hidden' : ''}`}
+                    >
+                      {user?.username?.charAt(0).toUpperCase() || '?'}
+                    </div>
                   </button>
                 </div>
                 {isOpen && (
                   <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
                     <Link
                       href="/profile"
+                      onClick={() => setIsOpen(false)}
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
                       Your Profile
@@ -171,13 +194,17 @@ export default function Navbar() {
                     {user?.roles?.includes('ROLE_ADMIN') && (
                       <Link
                         href="/admin"
+                        onClick={() => setIsOpen(false)}
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       >
                         Admin Dashboard
                       </Link>
                     )}
                     <button
-                      onClick={handleLogout}
+                      onClick={() => {
+                        setIsOpen(false);
+                        handleLogout();
+                      }}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
                       Sign out
@@ -219,6 +246,16 @@ export default function Navbar() {
             } transition-all duration-200`}
           >
             Courses
+          </Link>
+          <Link
+            href="/about"
+            className={`block px-3 py-2 rounded-lg text-base font-medium ${
+              pathname === '/about'
+                ? 'text-white bg-[#4169E1]'
+                : 'text-gray-500 hover:text-[#4169E1] hover:bg-[#4169E1]/5'
+            } transition-all duration-200`}
+          >
+            About Us
           </Link>
           <Link
             href="/mentors"

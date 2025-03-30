@@ -131,6 +131,8 @@ export default function ProfilePage() {
       setUser(completeUserData);
       setEditedUser(completeUserData);
       localStorage.setItem('user', JSON.stringify(completeUserData));
+      // Dispatch event to update navbar
+      window.dispatchEvent(new Event('userDataChanged'));
       setSuccess('Profile picture updated successfully!');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
