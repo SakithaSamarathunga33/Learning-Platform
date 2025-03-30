@@ -48,7 +48,17 @@ export default function LoginPage() {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         // Dispatch custom event to update navbar
-        window.dispatchEvent(new Event('userDataChanged'));
+        try {
+          // Create and dispatch a CustomEvent for better browser compatibility
+          const event = new CustomEvent('userDataChanged');
+          window.dispatchEvent(event);
+        } catch (e) {
+          // Fallback for older browsers
+          console.error('Error creating custom event:', e);
+          const event = document.createEvent('Event');
+          event.initEvent('userDataChanged', true, true);
+          window.dispatchEvent(event);
+        }
         
         if (data.user.roles && data.user.roles.includes('ROLE_ADMIN')) {
           console.log('Admin login detected, redirecting to admin dashboard');
@@ -67,7 +77,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
       <div className="flex min-h-[calc(100vh-4rem)] mt-16">
         {/* Left side - Image and branding */}
         <div className="hidden md:flex md:w-1/2 relative">
@@ -79,7 +89,7 @@ export default function LoginPage() {
               style={{ objectFit: 'cover' }}
               priority
             />
-            <div className="absolute inset-0 bg-gradient-to-br from-[#4169E1]/90 to-[#2AB7CA]/80" />
+            <div className="absolute inset-0 bg-gradient-to-br from-[#4169E1]/90 to-[#2AB7CA]/80 dark:from-[#5278ed]/90 dark:to-[#4fc3d5]/80 transition-colors duration-200" />
           </div>
           <div className="relative z-10 flex flex-col justify-center p-12 text-white">
             <h1 className="text-4xl font-bold mb-4">Skill-Sharing & Learning Platform</h1>
@@ -114,41 +124,41 @@ export default function LoginPage() {
         </div>
 
         {/* Right side - Login form */}
-        <div className="flex-1 flex items-center justify-center p-8 bg-white">
+        <div className="flex-1 flex items-center justify-center p-8 bg-white dark:bg-gray-800 transition-colors duration-200">
           <div className="w-full max-w-md">
             <div className="text-center">
-              <div className="w-20 h-20 mx-auto bg-gradient-to-r from-[#4169E1] to-[#2AB7CA] rounded-2xl flex items-center justify-center shadow-lg">
+              <div className="w-20 h-20 mx-auto bg-gradient-to-r from-[#4169E1] to-[#2AB7CA] dark:from-[#5278ed] dark:to-[#4fc3d5] rounded-2xl flex items-center justify-center shadow-lg transition-colors duration-200">
                 <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
-              <h2 className="mt-6 text-3xl font-bold text-gray-900">
+              <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-white transition-colors duration-200">
                 Welcome Back
               </h2>
-              <p className="mt-2 text-sm text-gray-600">
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 transition-colors duration-200">
                 Don't have an account?{' '}
-                <Link href="/register" className="font-medium text-[#4169E1] hover:text-[#4169E1]/90">
+                <Link href="/register" className="font-medium text-[#4169E1] hover:text-[#4169E1]/90 dark:text-[#5278ed] dark:hover:text-[#5278ed]/90 transition-colors duration-200">
                   Register now
                 </Link>
               </p>
             </div>
 
             {error && (
-              <div className="mt-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
-                <p className="text-red-700">{error}</p>
+              <div className="mt-6 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-md transition-colors duration-200">
+                <p className="text-red-700 dark:text-red-400 transition-colors duration-200">{error}</p>
               </div>
             )}
 
             {successMessage && (
-              <div className="mt-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-md">
-                <p className="text-green-700">{successMessage}</p>
+              <div className="mt-6 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 p-4 rounded-md transition-colors duration-200">
+                <p className="text-green-700 dark:text-green-400 transition-colors duration-200">{successMessage}</p>
               </div>
             )}
 
             <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200">
                     Username
                   </label>
                   <div className="mt-1">
@@ -159,7 +169,7 @@ export default function LoginPage() {
                       required
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#4169E1] focus:border-[#4169E1] transition-all duration-200"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-[#4169E1] dark:focus:ring-[#5278ed] focus:border-[#4169E1] dark:focus:border-[#5278ed] dark:bg-gray-700 dark:text-white transition-colors duration-200"
                       placeholder="Enter your username"
                       disabled={isLoading}
                     />
@@ -167,7 +177,7 @@ export default function LoginPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200">
                     Password
                   </label>
                   <div className="mt-1">
@@ -178,7 +188,7 @@ export default function LoginPage() {
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#4169E1] focus:border-[#4169E1] transition-all duration-200"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-[#4169E1] dark:focus:ring-[#5278ed] focus:border-[#4169E1] dark:focus:border-[#5278ed] dark:bg-gray-700 dark:text-white transition-colors duration-200"
                       placeholder="Enter your password"
                       disabled={isLoading}
                     />
@@ -189,7 +199,7 @@ export default function LoginPage() {
               <div>
                 <button
                   type="submit"
-                  className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#4169E1] hover:bg-[#4169E1]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#4169E1] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#4169E1] dark:bg-[#5278ed] hover:bg-[#4169E1]/90 dark:hover:bg-[#5278ed]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#4169E1] dark:focus:ring-[#5278ed] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -206,10 +216,10 @@ export default function LoginPage() {
               <div className="mt-6">
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300"></div>
+                    <div className="w-full border-t border-gray-300 dark:border-gray-600 transition-colors duration-200"></div>
                   </div>
                   <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                    <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors duration-200">Or continue with</span>
                   </div>
                 </div>
 
@@ -217,7 +227,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={handleGoogleLogin}
-                    className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#4169E1] transition-all duration-200"
+                    className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#4169E1] dark:focus:ring-[#5278ed] transition-all duration-200"
                     disabled={isLoading}
                   >
                     <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">

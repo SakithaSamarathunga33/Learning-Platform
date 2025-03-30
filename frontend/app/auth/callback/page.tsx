@@ -38,7 +38,22 @@ export default function AuthCallback() {
             return response.json();
         })
         .then(userData => {
+            console.log('Google auth user data:', userData);
             localStorage.setItem('user', JSON.stringify(userData));
+            
+            // Dispatch custom event to update navbar
+            try {
+              // Create and dispatch a CustomEvent for better browser compatibility
+              const event = new CustomEvent('userDataChanged');
+              window.dispatchEvent(event);
+            } catch (e) {
+              // Fallback for older browsers
+              console.error('Error creating custom event:', e);
+              const event = document.createEvent('Event');
+              event.initEvent('userDataChanged', true, true);
+              window.dispatchEvent(event);
+            }
+            
             // Check if user is admin and redirect accordingly
             if (userData.roles && userData.roles.includes('ROLE_ADMIN')) {
                 console.log('Admin login detected, redirecting to admin dashboard');
