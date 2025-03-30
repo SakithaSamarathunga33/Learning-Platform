@@ -3,19 +3,45 @@
 @tailwind utilities;
 
 :root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
   --background: #ffffff;
   --foreground: #000000;
+  --card-bg: #ffffff;
+  --card-border: #eaeaea;
+  --primary: #4169E1;
+  --primary-hover: #3656be;
+  --secondary: #2AB7CA;
+  --secondary-hover: #229dad;
+  --accent: #FF6F00;
+  --text-primary: #1a202c;
+  --text-secondary: #4a5568;
+  --text-tertiary: #718096;
 }
 
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.dark {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 0, 0, 0;
+  --background-end-rgb: 0, 0, 0;
+  --background: #1a202c;
+  --foreground: #f7fafc;
+  --card-bg: #2d3748;
+  --card-border: #4a5568;
+  --primary: #5278ed;
+  --primary-hover: #6187f1;
+  --secondary: #4fc3d5;
+  --secondary-hover: #61d0e0;
+  --accent: #ff8c29;
+  --text-primary: #f7fafc;
+  --text-secondary: #e2e8f0;
+  --text-tertiary: #cbd5e0;
+}
+
+/* Keyframe animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes fadeInUp {
@@ -29,18 +55,85 @@
   }
 }
 
-.animate-fade-in-down {
-  animation: fadeInDown 0.6s ease-out;
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
-.animate-fade-in-up {
-  animation: fadeInUp 0.6s ease-out;
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
+/* Animation utilities */
+.animate-fadeIn {
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.8s ease-out forwards;
+}
+
+.animate-fadeInRight {
+  animation: fadeInRight 0.8s ease-out forwards;
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient 8s ease infinite;
+}
+
+.animate-delay-0 {
+  animation-delay: 0s;
+}
+
+.animate-delay-100 {
+  animation-delay: 0.1s;
+}
+
+.animate-delay-200 {
+  animation-delay: 0.2s;
+}
+
+.animate-delay-300 {
+  animation-delay: 0.3s;
+}
+
+.animate-delay-400 {
+  animation-delay: 0.4s;
+}
+
+/* Component styles */
 body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(var(--background-end-rgb))
+  )
+  rgb(var(--background-start-rgb));
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.hero-button {
+  @apply px-6 py-3 rounded-md shadow-sm font-medium transition-all duration-200;
+}
+
+.feature-card {
+  @apply p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200;
 }
 
 @layer components {
@@ -50,7 +143,11 @@ body {
   }
 
   .feature-card {
-    @apply bg-white p-8 rounded-xl shadow-lg transform transition-all duration-300
+    @apply bg-white dark:bg-gray-700 p-8 rounded-xl shadow-lg transform transition-all duration-300
            hover:scale-105 hover:shadow-xl;
+  }
+  
+  .theme-transition {
+    @apply transition-colors duration-200;
   }
 }

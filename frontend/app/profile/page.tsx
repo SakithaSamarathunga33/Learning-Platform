@@ -130,10 +130,26 @@ export default function ProfilePage() {
       
       setUser(completeUserData);
       setEditedUser(completeUserData);
+      
+      // Update localStorage with the new user data
       localStorage.setItem('user', JSON.stringify(completeUserData));
-      // Dispatch event to update navbar
-      window.dispatchEvent(new Event('userDataChanged'));
-      setSuccess('Profile picture updated successfully!');
+      
+      // Dispatch custom event to update navbar with new profile picture
+      console.log('Dispatching userDataChanged event with updated picture:', completeUserData.picture);
+      try {
+        // Create and dispatch a CustomEvent for better browser compatibility
+        const event = new CustomEvent('userDataChanged');
+        window.dispatchEvent(event);
+      } catch (e) {
+        // Fallback for older browsers
+        console.error('Error creating custom event:', e);
+        const event = document.createEvent('Event');
+        event.initEvent('userDataChanged', true, true);
+        window.dispatchEvent(event);
+      }
+      
+      setIsEditing(false);
+      setSuccess('Profile updated successfully!');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error updating profile picture:', err);
@@ -221,109 +237,23 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200">
         <div className="container mx-auto px-4 py-8 mt-16">
-          <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg p-8">
+          <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 transition-colors duration-200">
             <div className="flex justify-between items-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900">Profile Settings</h1>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white transition-colors duration-200">Profile Settings</h1>
               {!isEditing && (
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors duration-200"
                 >
                   Edit Profile
                 </button>
               )}
             </div>
-
-            {error && (
-              <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
-                <p className="text-red-700">{error}</p>
-              </div>
-            )}
-
-            {success && (
-              <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-md">
-                <p className="text-green-700">{success}</p>
-              </div>
-            )}
-
-            <div className="flex flex-col items-center mb-8">
-              <div className="relative">
-                <ImageUpload
-                  currentImage={user?.picture}
-                  onImageUpload={handleImageUpload}
-                  className="mb-4"
-                />
-                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
-                  <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
-                    Change Photo
-                  </div>
-                </div>
-              </div>
-              <p className="text-sm text-gray-500 mt-4">
-                Click to upload a new profile picture
-              </p>
+            <div className="flex justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4169E1] dark:border-[#5278ed]"></div>
             </div>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Username</label>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    name="username"
-                    value={editedUser?.username || ''}
-                    onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  />
-                ) : (
-                  <p className="mt-1 p-3 bg-gray-50 rounded-lg">{user?.username}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
-                <p className="mt-1 p-3 bg-gray-50 rounded-lg">{user?.email}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Name</label>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    name="name"
-                    value={editedUser?.name || ''}
-                    onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  />
-                ) : (
-                  <p className="mt-1 p-3 bg-gray-50 rounded-lg">{user?.name || 'Not set'}</p>
-                )}
-              </div>
-
-              {isEditing && (
-                <div className="flex justify-end space-x-4 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsEditing(false);
-                      setEditedUser(user);
-                      setError('');
-                    }}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Save Changes
-                  </button>
-                </div>
-              )}
-            </form>
           </div>
         </div>
       </div>
@@ -331,15 +261,15 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200">
       <div className="container mx-auto px-4 py-8 mt-16">
-        <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg p-8">
+        <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 transition-colors duration-200">
           <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Profile Settings</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white transition-colors duration-200">Profile Settings</h1>
             {!isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors duration-200"
               >
                 Edit Profile
               </button>
@@ -347,14 +277,14 @@ export default function ProfilePage() {
           </div>
 
           {error && (
-            <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
-              <p className="text-red-700">{error}</p>
+            <div className="mb-6 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-md transition-colors duration-200">
+              <p className="text-red-700 dark:text-red-400 transition-colors duration-200">{error}</p>
             </div>
           )}
 
           {success && (
-            <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-md">
-              <p className="text-green-700">{success}</p>
+            <div className="mb-6 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 p-4 rounded-md transition-colors duration-200">
+              <p className="text-green-700 dark:text-green-400 transition-colors duration-200">{success}</p>
             </div>
           )}
 
@@ -366,49 +296,50 @@ export default function ProfilePage() {
                 className="mb-4"
               />
               <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
-                <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+                <div className="bg-blue-600 dark:bg-blue-500 text-white px-3 py-1 rounded-full text-sm transition-colors duration-200">
                   Change Photo
                 </div>
               </div>
             </div>
-            <p className="text-sm text-gray-500 mt-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-4 transition-colors duration-200">
               Click to upload a new profile picture
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Username</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200">Username</label>
               {isEditing ? (
                 <input
                   type="text"
                   name="username"
                   value={editedUser?.username || ''}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400 dark:bg-gray-700 dark:text-white transition-colors duration-200"
+                  disabled={user?.provider === 'google'}
                 />
               ) : (
-                <p className="mt-1 p-3 bg-gray-50 rounded-lg">{user?.username}</p>
+                <p className="mt-1 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg dark:text-gray-200 transition-colors duration-200">{user?.username}</p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Email</label>
-              <p className="mt-1 p-3 bg-gray-50 rounded-lg">{user?.email}</p>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200">Email</label>
+              <p className="mt-1 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg dark:text-gray-200 transition-colors duration-200">{user?.email}</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200">Name</label>
               {isEditing ? (
                 <input
                   type="text"
                   name="name"
                   value={editedUser?.name || ''}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400 dark:bg-gray-700 dark:text-white transition-colors duration-200"
                 />
               ) : (
-                <p className="mt-1 p-3 bg-gray-50 rounded-lg">{user?.name || 'Not set'}</p>
+                <p className="mt-1 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg dark:text-gray-200 transition-colors duration-200">{user?.name || 'Not set'}</p>
               )}
             </div>
 
@@ -421,13 +352,13 @@ export default function ProfilePage() {
                     setEditedUser(user);
                     setError('');
                   }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors duration-200"
                 >
                   Save Changes
                 </button>

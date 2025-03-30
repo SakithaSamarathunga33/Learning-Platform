@@ -51,7 +51,7 @@ export default function ImageUpload({ currentImage, onImageUpload, className = '
     <div className={`relative ${className}`}>
       <div
         onClick={handleClick}
-        className="relative w-32 h-32 rounded-full overflow-hidden cursor-pointer group border-2 border-gray-200 hover:border-[#4169E1] transition-all duration-200"
+        className="relative w-32 h-32 rounded-full overflow-hidden cursor-pointer group border-2 border-gray-200 dark:border-gray-700 hover:border-[#4169E1] dark:hover:border-[#5278ed] transition-all duration-200"
       >
         {currentImage ? (
           <Image
@@ -62,8 +62,8 @@ export default function ImageUpload({ currentImage, onImageUpload, className = '
             className="group-hover:opacity-80 transition-opacity duration-200"
           />
         ) : (
-          <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-            <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-full h-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center transition-colors duration-200">
+            <svg className="w-12 h-12 text-gray-400 dark:text-gray-300 transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
@@ -89,7 +89,7 @@ export default function ImageUpload({ currentImage, onImageUpload, className = '
       />
 
       {error && (
-        <div className="absolute -bottom-6 left-0 right-0 text-red-500 text-xs text-center">
+        <div className="absolute -bottom-6 left-0 right-0 text-red-500 dark:text-red-400 text-xs text-center transition-colors duration-200">
           {error}
         </div>
       )}
