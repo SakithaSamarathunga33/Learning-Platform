@@ -3,60 +3,88 @@
 @tailwind utilities;
 
 @layer base {
-  :root { /* Restored selector */
-    --background: 0 0% 100%; /* Uncommented */
-    --foreground: 0 0% 3.9%; /* Uncommented */
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
+  :root {
+    /* Light Mode - Bootstrap Gray Color Palette */
+    --background: 210 17% 98%; /* F8F9FA */
+    --foreground: 210 11% 15%; /* 212529 */
+    --card: 0 0% 100%; /* White */
+    --card-foreground: 210 11% 15%; /* 212529 */
+    --popover: 0 0% 100%; /* White */
+    --popover-foreground: 210 11% 15%; /* 212529 */
+    --primary: 210 10% 23%; /* 343A40 */
+    --primary-foreground: 0 0% 100%; /* White */
+    --secondary: 208 7% 46%; /* 6C757D */
+    --secondary-foreground: 0 0% 100%; /* White */
+    --muted: 210 14% 89%; /* DEE2E6 */
+    --muted-foreground: 210 10% 23%; /* 343A40 */
+    --accent: 208 7% 46%; /* 6C757D */
+    --accent-foreground: 0 0% 100%; /* White */
+    --destructive: 0 84% 60%; /* Red */
+    --destructive-foreground: 0 0% 98%; /* White */
+    --border: 210 16% 82%; /* CED4DA */
+    --input: 210 16% 82%; /* CED4DA */
+    --ring: 210 10% 23%; /* 343A40 */
     --radius: 0.5rem;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%; /* Uncommented */
-    --chart-5: 27 87% 67%; /* Uncommented */
-  } /* Restored closing brace */
 
-  .dark { /* Restored selector */
-    --background: 0 0% 3.9%; /* Uncommented */
-    --foreground: 0 0% 98%; /* Uncommented */
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%; /* Uncommented */
-    --chart-5: 340 75% 55%; /* Uncommented */
-  } /* Restored closing brace */
+    /* Bootstrap Gray Color Variables */
+    --gray-100: 210 17% 98%; /* F8F9FA */
+    --gray-200: 210 16% 93%; /* E9ECEF */
+    --gray-300: 210 14% 89%; /* DEE2E6 */
+    --gray-400: 210 16% 82%; /* CED4DA */
+    --gray-500: 210 11% 71%; /* ADB5BD */
+    --gray-600: 208 7% 46%; /* 6C757D */
+    --gray-700: 206 6% 31%; /* 495057 */
+    --gray-800: 210 10% 23%; /* 343A40 */
+    --gray-900: 210 11% 15%; /* 212529 */
+
+    /* Chart colors */
+    --chart-1: 210 10% 23%; /* 343A40 */
+    --chart-2: 206 6% 31%; /* 495057 */
+    --chart-3: 208 7% 46%; /* 6C757D */
+    --chart-4: 210 11% 71%; /* ADB5BD */
+    --chart-5: 210 16% 82%; /* CED4DA */
+  }
+
+  .dark {
+    /* Dark Mode - Bootstrap Gray Color Palette (Inverted) */
+    --background: 210 11% 15%; /* 212529 */
+    --foreground: 210 17% 98%; /* F8F9FA */
+    --card: 210 10% 23%; /* 343A40 */
+    --card-foreground: 210 17% 98%; /* F8F9FA */
+    --popover: 210 10% 23%; /* 343A40 */
+    --popover-foreground: 210 17% 98%; /* F8F9FA */
+    --primary: 210 14% 89%; /* DEE2E6 */
+    --primary-foreground: 210 11% 15%; /* 212529 */
+    --secondary: 210 11% 71%; /* ADB5BD */
+    --secondary-foreground: 210 11% 15%; /* 212529 */
+    --muted: 206 6% 31%; /* 495057 */
+    --muted-foreground: 210 16% 93%; /* E9ECEF */
+    --accent: 210 11% 71%; /* ADB5BD */
+    --accent-foreground: 210 11% 15%; /* 212529 */
+    --destructive: 0 84% 60%; /* Red */
+    --destructive-foreground: 210 17% 98%; /* F8F9FA */
+    --border: 206 6% 31%; /* 495057 */
+    --input: 206 6% 31%; /* 495057 */
+    --ring: 210 16% 93%; /* E9ECEF */
+
+    /* Bootstrap Gray Color Variables (same as light mode) */
+    --gray-100: 210 17% 98%; /* F8F9FA */
+    --gray-200: 210 16% 93%; /* E9ECEF */
+    --gray-300: 210 14% 89%; /* DEE2E6 */
+    --gray-400: 210 16% 82%; /* CED4DA */
+    --gray-500: 210 11% 71%; /* ADB5BD */
+    --gray-600: 208 7% 46%; /* 6C757D */
+    --gray-700: 206 6% 31%; /* 495057 */
+    --gray-800: 210 10% 23%; /* 343A40 */
+    --gray-900: 210 11% 15%; /* 212529 */
+
+    /* Chart colors */
+    --chart-1: 210 17% 98%; /* F8F9FA */
+    --chart-2: 210 16% 93%; /* E9ECEF */
+    --chart-3: 210 14% 89%; /* DEE2E6 */
+    --chart-4: 210 16% 82%; /* CED4DA */
+    --chart-5: 210 11% 71%; /* ADB5BD */
+  }
 }
 
 /* Keep base styles for body and * */

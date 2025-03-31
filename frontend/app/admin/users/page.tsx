@@ -593,19 +593,15 @@ export default function UsersPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <div className="relative h-10 w-10">
-                        {user.avatar && user.avatar !== "/placeholder.svg?height=32&width=32" ? (
-                          <img
-                            src={user.avatar}
-                            alt={user.name}
-                            className="rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-medium">
-                            {user.initials}
-                          </div>
-                        )}
-                      </div>
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage 
+                          src={user.avatar !== "/placeholder.svg?height=32&width=32" ? user.avatar : ""} 
+                          alt={user.name} 
+                        />
+                        <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                          {user.initials}
+                        </AvatarFallback>
+                      </Avatar>
                       <div>
                         <div className="font-medium">{user.name}</div>
                         <div className="text-sm text-muted-foreground">{user.username}</div>
