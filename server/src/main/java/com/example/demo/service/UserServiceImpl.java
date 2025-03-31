@@ -35,34 +35,34 @@ public class UserServiceImpl implements UserService {
         if (user.isPresent()) {
             User existingUser = user.get();
             
-            // For Google users, allow updating name and picture
+            // Update name if provided
+            if (userDetails.getName() != null) {
+                existingUser.setName(userDetails.getName());
+            }
+            
+            // Update picture if provided
+            if (userDetails.getPicture() != null) {
+                existingUser.setPicture(userDetails.getPicture());
+            }
+            
+            // Update roles if provided
+            if (userDetails.getRoles() != null) {
+                existingUser.setRoles(userDetails.getRoles());
+            }
+            
+            // For Google users, only allow updating name and picture
             if ("google".equals(existingUser.getProvider())) {
-                if (userDetails.getName() != null) {
-                    existingUser.setName(userDetails.getName());
-                }
-                if (userDetails.getPicture() != null) {
-                    existingUser.setPicture(userDetails.getPicture());
-                }
-            } else {
-                // For regular users, allow updating all fields except email
-                if (userDetails.getUsername() != null) {
-                    existingUser.setUsername(userDetails.getUsername());
-                }
-                
-                // Only update password if it's provided and not empty
-                if (userDetails.getPassword() != null && !userDetails.getPassword().isEmpty()) {
-                    existingUser.setPassword(userDetails.getPassword());
-                }
-                
-                // Update name if provided
-                if (userDetails.getName() != null) {
-                    existingUser.setName(userDetails.getName());
-                }
-                
-                // Update picture if provided
-                if (userDetails.getPicture() != null) {
-                    existingUser.setPicture(userDetails.getPicture());
-                }
+                return userRepository.save(existingUser);
+            }
+            
+            // For regular users, allow updating all fields except email
+            if (userDetails.getUsername() != null) {
+                existingUser.setUsername(userDetails.getUsername());
+            }
+            
+            // Only update password if it's provided and not empty
+            if (userDetails.getPassword() != null && !userDetails.getPassword().isEmpty()) {
+                existingUser.setPassword(userDetails.getPassword());
             }
             
             return userRepository.save(existingUser);

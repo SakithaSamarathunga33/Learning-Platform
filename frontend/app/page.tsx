@@ -1,423 +1,616 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable react/no-unescaped-entities */
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { useInView } from 'react-intersection-observer';
+import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { BookOpen, Clock, Award, ChevronRight, Star, Search } from "lucide-react"
+import useEmblaCarousel from "embla-carousel-react";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+} from "@/components/ui/carousel";
 
-// Animation utility for staggered animations
-type AnimationProps = {
-  initial: { opacity: number; y: number };
-  animate: {
-    opacity: number;
-    y: number;
-    transition: {
-      delay: number;
-      duration: number;
-      ease: number[];
-    };
-  };
-};
+// Define the CarouselApi type
+type CarouselApi = ReturnType<typeof useEmblaCarousel>[1];
 
-const useStaggeredAnimation = (staggerDelay = 0.1, initialDelay = 0): ((index: number) => AnimationProps) => {
-  return (index: number) => {
-    return {
-      initial: { opacity: 0, y: 20 },
-      animate: { 
-        opacity: 1, 
-        y: 0, 
-        transition: { 
-          delay: initialDelay + index * staggerDelay,
-          duration: 0.5,
-          ease: [0.22, 1, 0.36, 1]
-        } 
-      }
-    };
-  };
-};
+// Images for the carousel
+const courseImages = [
+  {
+    src: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3",
+    alt: "Students collaborating in a modern classroom",
+    caption: "Real-world collaboration skills",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?ixlib=rb-4.0.3",
+    alt: "Student studying on laptop with notes",
+    caption: "Flexible learning environments",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?ixlib=rb-4.0.3",
+    alt: "Online education session with instructor",
+    caption: "Expert-led instruction",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1531482615713-2afd69097998?ixlib=rb-4.0.3",
+    alt: "Classroom learning environment with students",
+    caption: "Community-focused education",
+  },
+];
 
 export default function HomePage() {
-  // Intersection observers for scroll-triggered animations
-  const [heroRef, heroInView] = useInView({ threshold: 0.1, triggerOnce: true });
-  const [featuresRef, featuresInView] = useInView({ threshold: 0.1, triggerOnce: true });
-  const [statsRef, statsInView] = useInView({ threshold: 0.1, triggerOnce: true });
-  const [testimonialsRef, testimonialsInView] = useInView({ threshold: 0.1, triggerOnce: true });
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPaused, setIsPaused] = useState(false);
+  const autoRotateRef = useRef<number | null>(null);
+  const [scrollY, setScrollY] = useState(0);
+  const [mounted, setMounted] = useState(false);
 
-  // Create animation instance to prevent linter warnings
-  const _getAnimation = useStaggeredAnimation();
-
-  // Animation for counting up numbers
-  const [countedUp, setCountedUp] = useState(false);
-  const studentsCount = useRef(0);
-  const coursesCount = useRef(0);
-  const ratingsCount = useRef(0);
-
+  // Update scroll position for parallax effects
   useEffect(() => {
-    if (statsInView && !countedUp) {
-      setCountedUp(true);
-      const duration = 2000;
-      const frameDuration = 1000 / 60;
-      const totalFrames = Math.round(duration / frameDuration);
-      
-      const studentsCounter = document.getElementById('students-count');
-      const coursesCounter = document.getElementById('courses-count');
-      const ratingsCounter = document.getElementById('ratings-count');
-      
-      const studentsEndValue = 50000;
-      const coursesEndValue = 200;
-      const ratingsEndValue = 95;
-      
-      let frame = 0;
-      const countUpAnimation = () => {
-        frame++;
-        const progress = frame / totalFrames;
-        const easeOutCubic = 1 - Math.pow(1 - progress, 3);
-        
-        studentsCount.current = Math.floor(easeOutCubic * studentsEndValue);
-        coursesCount.current = Math.floor(easeOutCubic * coursesEndValue);
-        ratingsCount.current = Math.floor(easeOutCubic * ratingsEndValue);
-        
-        if (studentsCounter) studentsCounter.innerText = `${studentsCount.current.toLocaleString()}+`;
-        if (coursesCounter) coursesCounter.innerText = `${coursesCount.current}+`;
-        if (ratingsCounter) ratingsCounter.innerText = `${ratingsCount.current}%`;
-        
-        if (frame < totalFrames) {
-          requestAnimationFrame(countUpAnimation);
-        }
-      };
-      
-      requestAnimationFrame(countUpAnimation);
+    const handleScroll = () => {
+      setScrollY(window.scrollY);
+    };
+
+    // Set mounted to true after initial render
+    setMounted(true);
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Update current slide when carousel changes
+  useEffect(() => {
+    if (!carouselApi) return;
+
+    const onSelect = () => {
+      setActiveSlide(carouselApi.selectedScrollSnap());
+    };
+
+    carouselApi.on("select", onSelect);
+    // Initial call to set the correct active slide
+    onSelect();
+    
+    return () => {
+      carouselApi.off("select", onSelect);
+    };
+  }, [carouselApi]);
+
+  // Auto rotate slides
+  useEffect(() => {
+    if (!carouselApi || isPaused) return;
+    
+    // Clear any existing interval when dependencies change
+    if (autoRotateRef.current) {
+      clearInterval(autoRotateRef.current);
     }
-  }, [statsInView, countedUp]);
+    
+    // Set new interval
+    autoRotateRef.current = window.setInterval(() => {
+      if (activeSlide === courseImages.length - 1) {
+        carouselApi.scrollTo(0);
+      } else {
+        carouselApi.scrollNext();
+      }
+    }, 5000); // Change image every 5 seconds
+    
+    // Cleanup function
+    return () => {
+      if (autoRotateRef.current) {
+        clearInterval(autoRotateRef.current);
+        autoRotateRef.current = null;
+      }
+    };
+  }, [carouselApi, activeSlide, isPaused]);
+
+  // Reset loading state when images are loaded
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Handler for indicator clicks
+  const scrollToSlide = useCallback(
+    (index: number) => {
+      if (!carouselApi) return;
+      carouselApi.scrollTo(index);
+    },
+    [carouselApi]
+  );
+
+  // Pause auto-rotation on hover
+  const handleMouseEnter = useCallback(() => {
+    setIsPaused(true);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsPaused(false);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+    <div className="flex flex-col min-h-screen relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none -z-5">
+        <div className="absolute top-1/4 -left-10 w-72 h-72 bg-primary/10 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
+        <div className="absolute top-3/4 -right-10 w-96 h-96 bg-secondary/10 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
+        <div className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-accent/10 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
+      </div>
+
+      <main>
       {/* Hero Section */}
-      <div ref={heroRef} className="relative bg-white dark:bg-gray-800 pt-16 transition-colors duration-200">
-        <div className="w-full">
-          <div className="relative z-10 bg-white dark:bg-gray-800 lg:max-w-[50%] lg:w-full transition-colors duration-200">
-            <main className="mx-auto w-full px-4 sm:px-6 lg:px-8">
-              <div className="sm:text-center lg:text-left py-12 lg:py-20">
-                <h1 className={`text-4xl tracking-tight font-extrabold text-gray-900 dark:text-white sm:text-5xl md:text-6xl transition-colors duration-200 ${heroInView ? 'animate-fadeIn' : 'opacity-0'}`}>
-                  <span className="block">Learn and Grow with</span>
-                  <span className="block bg-gradient-to-r from-[#4169E1] to-[#2AB7CA] bg-clip-text text-transparent animate-gradient">
-                    Expert Mentors
-                  </span>
+        <section className="relative py-20 md:py-32 bg-gradient-to-r from-primary/10 via-primary/5 to-background overflow-hidden">
+          <div 
+            className="absolute inset-0 opacity-20" 
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+              transform: `translateY(${scrollY * 0.1}px)`
+            }}
+          ></div>
+          <div className="container flex flex-col md:flex-row items-center gap-8">
+            <div className="flex-1 space-y-6 transform transition-all duration-700 opacity-0 translate-y-8 animate-fade-in-up">
+              <Badge variant="outline" className="px-3 py-1 text-sm">
+                Over 1,000+ courses available
+              </Badge>
+              <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
+                Unlock Your Potential With Expert-Led Courses
                 </h1>
-                <p className={`mt-3 text-base text-gray-500 dark:text-gray-300 sm:mt-5 sm:text-lg sm:max-w-xl sm:mx-auto md:mt-5 md:text-xl lg:mx-0 transition-colors duration-200 ${heroInView ? 'animate-fadeInUp animate-delay-100' : 'opacity-0'}`}>
-                  Join our community of learners and mentors. Share knowledge, gain skills, and achieve your goals with personalized learning experiences.
-                </p>
-                <div className={`mt-5 sm:mt-8 sm:flex sm:justify-center lg:justify-start ${heroInView ? 'animate-fadeInUp animate-delay-200' : 'opacity-0'}`}>
-                  <div className="rounded-md shadow">
-                    <Link
-                      href="/courses"
-                      className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-[#4169E1] hover:bg-[#4169E1]/90 dark:bg-[#5278ed] dark:hover:bg-[#5278ed]/90 md:py-4 md:text-lg md:px-10 transition-all duration-200"
-                    >
-                      Browse Courses
-                    </Link>
+              <p className="text-xl text-muted-foreground max-w-[600px]">
+                Discover courses taught by industry experts and advance your career with hands-on projects and
+                certificates.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                <Button 
+                  size="lg" 
+                  className="px-8 transition-all duration-300 hover:scale-105 hover:shadow-lg active:scale-95"
+                >
+                  Explore Courses
+                </Button>
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  className="px-8 transition-all duration-300 hover:scale-105 hover:bg-muted/50 active:scale-95"
+                >
+                  View Categories
+                </Button>
                   </div>
-                  <div className="mt-3 sm:mt-0 sm:ml-3">
-                    <Link
-                      href="/mentors"
-                      className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-lg text-[#4169E1] bg-[#4169E1]/5 hover:bg-[#4169E1]/10 dark:text-[#5278ed] dark:bg-[#5278ed]/10 dark:hover:bg-[#5278ed]/20 md:py-4 md:text-lg md:px-10 transition-all duration-200"
-                    >
-                      Find Mentors
-                    </Link>
+              <div className="flex items-center gap-8 pt-6">
+                <div className="flex flex-col">
+                  <span className="text-2xl font-bold">10K+</span>
+                  <span className="text-sm text-muted-foreground">Students</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-2xl font-bold">1K+</span>
+                  <span className="text-sm text-muted-foreground">Courses</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-2xl font-bold">200+</span>
+                  <span className="text-sm text-muted-foreground">Instructors</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex-1 relative transform transition-all duration-700 opacity-0 translate-x-8 animate-fade-in-up animation-delay-300">
+              {/* Image Carousel */}
+              <div 
+                className="relative rounded-lg overflow-hidden shadow-2xl"
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+              >
+                <Carousel 
+                  opts={{ 
+                    loop: true,
+                    align: "start",
+                  }}
+                  className={`w-full ${isLoading ? 'opacity-90' : 'opacity-100'} transition-opacity duration-500`}
+                  setApi={setCarouselApi}
+                >
+                  <CarouselContent>
+                    {courseImages.map((image, index) => (
+                      <CarouselItem key={index} className="relative">
+                        <img
+                          src={image.src}
+                          alt={image.alt}
+                          onLoad={() => index === 0 && setIsLoading(false)}
+                          className={`w-full h-[300px] md:h-[400px] object-cover transition-all duration-300 ${
+                            activeSlide === index ? 'opacity-100 scale-100' : 'opacity-90 scale-[1.02]'
+                          }`}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-50"></div>
+                        <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 transform transition-all duration-500" style={{ 
+                          transform: activeSlide === index ? 'translateY(0)' : 'translateY(10px)',
+                          opacity: activeSlide === index ? 1 : 0
+                        }}>
+                          <h3 className="text-white text-lg md:text-xl font-semibold">{image.alt}</h3>
+                          <p className="text-white/80 text-sm md:text-base">{image.caption}</p>
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  
+                  <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-8 w-8 opacity-70 hover:opacity-100 transition-opacity" />
+                  <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-8 w-8 opacity-70 hover:opacity-100 transition-opacity" />
+                  
+                  <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
+                    {courseImages.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => scrollToSlide(index)}
+                        className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                          activeSlide === index ? "bg-white scale-110" : "bg-white/50"
+                        }`}
+                        aria-label={`Go to slide ${index + 1}`}
+                      />
+                    ))}
+                </div>
+                </Carousel>
+              </div>
+              <div className="absolute -bottom-6 -left-6 bg-background rounded-lg p-4 shadow-lg z-10 transform transition hover:scale-105 duration-300">
+                <div className="flex items-center gap-3">
+                  <div className="bg-primary/10 p-3 rounded-full">
+                    <Award className="h-6 w-6 text-primary" />
                   </div>
+                  <div>
+                    <p className="font-medium">Certified Courses</p>
+                    <p className="text-sm text-muted-foreground">Industry recognized</p>
+            </div>
                 </div>
               </div>
-            </main>
+            </div>
           </div>
+        </section>
+
+        {/* Categories Section */}
+        <section className="py-16 bg-muted/30 relative">
+          <div className="container">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-12">
+              <div className="transform transition-all duration-700 opacity-0 translate-y-8" 
+                   style={{animationName: mounted ? 'fadeInUp' : 'none', 
+                          animationDuration: '0.6s', 
+                          animationFillMode: 'forwards', 
+                          animationDelay: '0.1s',
+                          animationPlayState: (scrollY > 100) ? 'running' : 'paused'}}>
+                <h2 className="text-3xl font-bold tracking-tight">Browse Top Categories</h2>
+                <p className="text-muted-foreground mt-2">Explore our most popular course categories</p>
+              </div>
+              <Button 
+                variant="ghost" 
+                className="mt-4 md:mt-0 transform transition-all duration-700 opacity-0 translate-y-8 hover:scale-105"
+                style={{animationName: mounted ? 'fadeInUp' : 'none', 
+                       animationDuration: '0.6s', 
+                       animationFillMode: 'forwards', 
+                       animationDelay: '0.3s',
+                       animationPlayState: (scrollY > 100) ? 'running' : 'paused'}}
+              >
+                View All Categories <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {categories.map((category, i) => (
+                <Card 
+                  key={category.name} 
+                  className="group hover:shadow-md transition-all duration-300 hover:scale-[1.03] border-0 shadow-lg"
+                  style={{
+                    transform: 'translateY(20px)',
+                    opacity: 0,
+                    animation: mounted ? `fadeInUp 0.6s ease-out forwards ${0.2 + i * 0.1}s` : 'none',
+                    animationPlayState: (scrollY > 200) ? 'running' : 'paused'
+                  }}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="bg-primary/10 p-3 w-fit rounded-lg mb-3 group-hover:bg-primary/20 transition-colors duration-300">{category.icon}</div>
+                    <CardTitle className="text-xl group-hover:text-primary transition-colors">
+                      {category.name}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription>{category.courses} courses</CardDescription>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Featured Courses */}
+        <section className="py-16 relative">
+          <div className="container">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-12">
+              <div className="transform transition-all duration-700 opacity-0 translate-y-8" 
+                   style={{animationName: mounted ? 'fadeInUp' : 'none', 
+                          animationDuration: '0.6s', 
+                          animationFillMode: 'forwards', 
+                          animationDelay: '0.1s',
+                          animationPlayState: (scrollY > 500) ? 'running' : 'paused'}}>
+                <h2 className="text-3xl font-bold tracking-tight">Featured Courses</h2>
+                <p className="text-muted-foreground mt-2">Learn from industry experts and advance your skills</p>
         </div>
-        <div className={`lg:absolute lg:inset-y-0 lg:right-0 lg:w-1/2 ${heroInView ? 'animate-fadeInRight animate-delay-300' : 'opacity-0'}`}>
-          <Image
-            src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3"
-            alt="Learning Platform"
-            width={1920}
-            height={1080}
-            className="h-56 w-full object-cover sm:h-72 md:h-96 lg:w-full lg:h-full"
-            priority
-          />
-        </div>
+              <Tabs 
+                defaultValue="popular" 
+                className="mt-4 md:mt-0 transform transition-all duration-700 opacity-0 translate-y-8" 
+                style={{animationName: mounted ? 'fadeInUp' : 'none', 
+                       animationDuration: '0.6s', 
+                       animationFillMode: 'forwards', 
+                       animationDelay: '0.3s',
+                       animationPlayState: (scrollY > 500) ? 'running' : 'paused'}}
+              >
+                <TabsList>
+                  <TabsTrigger value="popular" className="transition-all hover:bg-muted/80">Popular</TabsTrigger>
+                  <TabsTrigger value="trending" className="transition-all hover:bg-muted/80">Trending</TabsTrigger>
+                  <TabsTrigger value="new" className="transition-all hover:bg-muted/80">New</TabsTrigger>
+                </TabsList>
+              </Tabs>
       </div>
 
-      {/* Features Section */}
-      <div 
-        ref={featuresRef} 
-        className="py-24 bg-white dark:bg-gray-800 transition-colors duration-200"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className={`text-center max-w-3xl mx-auto ${featuresInView ? 'animate-fadeIn' : 'opacity-0'}`}>
-            <span className="inline-block px-3 py-1 text-sm font-semibold bg-[#4169E1]/10 dark:bg-[#5278ed]/20 text-[#4169E1] dark:text-[#5278ed] rounded-full mb-4 transition-colors duration-200">
-              Features
-            </span>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white transition-colors duration-200">
-              Everything you need to succeed
-            </h2>
-            <p className="mt-4 text-xl text-gray-500 dark:text-gray-300 transition-colors duration-200">
-              Our platform provides all the tools and resources you need to learn effectively and achieve your goals.
-            </p>
-          </div>
-
-          <div className="mt-20 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-16">
-            {/* Feature 1 */}
-            <div className={`group ${featuresInView ? 'animate-fadeInUp animate-delay-0' : 'opacity-0'}`}>
-              <div className="relative h-12 w-12 mx-auto mb-4">
-                <div className="absolute inset-0 bg-[#4169E1]/10 dark:bg-[#5278ed]/20 rounded-xl transform rotate-6 group-hover:rotate-12 transition-transform duration-300"></div>
-                <div className="absolute inset-0 bg-gradient-to-br from-[#4169E1] to-[#2AB7CA] dark:from-[#5278ed] dark:to-[#4fc3d5] rounded-xl flex items-center justify-center text-white transform group-hover:scale-110 transition-all duration-300">
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {courses.map((course, i) => (
+                <Card 
+                  key={course.title} 
+                  className="overflow-hidden group transition-all duration-300 hover:shadow-lg hover:scale-[1.02] border-0 shadow-md"
+                  style={{
+                    transform: 'translateY(20px)',
+                    opacity: 0,
+                    animation: mounted ? `fadeInUp 0.6s ease-out forwards ${0.2 + i * 0.1}s` : 'none',
+                    animationPlayState: (scrollY > 600) ? 'running' : 'paused'
+                  }}
+                >
+                  <div className="relative overflow-hidden">
+                    <img
+                      src={course.image}
+                      alt={course.title}
+                      className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <Badge className="absolute top-3 right-3 transition-transform duration-300 group-hover:scale-110">{course.level}</Badge>
+                </div>
+                  <CardHeader>
+                    <div className="flex justify-between items-center">
+                      <Badge variant="outline" className="bg-primary/10 hover:bg-primary/20 transition-colors">
+                        {course.category}
+                      </Badge>
+                      <div className="flex items-center">
+                        <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                        <span className="ml-1 text-sm font-medium">{course.rating}</span>
                 </div>
               </div>
-              <h3 className="text-xl font-semibold text-center text-gray-900 dark:text-white transition-colors duration-200">
-                Expert-Led Courses
-              </h3>
-              <p className="mt-3 text-center text-gray-500 dark:text-gray-300 px-4 transition-colors duration-200">
-                Learn from industry experts through structured courses designed for practical skill development.
+                    <CardTitle className="text-xl mt-2 group-hover:text-primary transition-colors">
+                      {course.title}
+                    </CardTitle>
+                    <CardDescription className="line-clamp-2">{course.description}</CardDescription>
+                  </CardHeader>
+                  <CardFooter className="border-t pt-4 flex justify-between">
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Clock className="mr-1 h-4 w-4" />
+                      {course.duration}
+                    </div>
+                    <div className="font-bold text-lg">{course.price === 0 ? "Free" : `$${course.price}`}</div>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+
+            <div className="flex justify-center mt-12">
+              <Button 
+                size="lg" 
+                className="transform transition-all duration-300 hover:scale-105 hover:shadow-md active:scale-95"
+                style={{
+                  transform: 'translateY(20px)',
+                  opacity: 0,
+                  animation: mounted ? 'fadeInUp 0.6s ease-out forwards 0.6s' : 'none',
+                  animationPlayState: (scrollY > 800) ? 'running' : 'paused'
+                }}
+              >
+                Explore All Courses <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+                </div>
+              </div>
+        </section>
+
+        {/* Testimonials */}
+        <section className="py-16 bg-muted/30">
+          <div className="container">
+            <div className="text-center mb-12 transform transition-all duration-700 opacity-0 translate-y-8" 
+                 style={{animationName: mounted ? 'fadeInUp' : 'none', 
+                        animationDuration: '0.6s', 
+                        animationFillMode: 'forwards', 
+                        animationPlayState: (scrollY > 900) ? 'running' : 'paused'}}>
+              <h2 className="text-3xl font-bold tracking-tight">What Our Students Say</h2>
+              <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">
+                Thousands of students have transformed their careers with our courses. Here's what they have to say.
               </p>
             </div>
 
-            {/* Feature 2 */}
-            <div className={`group ${featuresInView ? 'animate-fadeInUp animate-delay-100' : 'opacity-0'}`}>
-              <div className="relative h-12 w-12 mx-auto mb-4">
-                <div className="absolute inset-0 bg-[#FF6F00]/10 dark:bg-[#FF7F1D]/20 rounded-xl transform rotate-6 group-hover:rotate-12 transition-transform duration-300"></div>
-                <div className="absolute inset-0 bg-gradient-to-br from-[#FF6F00] to-[#FF9800] dark:from-[#FF7F1D] dark:to-[#FFA726] rounded-xl flex items-center justify-center text-white transform group-hover:scale-110 transition-all duration-300">
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                </div>
-              </div>
-              <h3 className="text-xl font-semibold text-center text-gray-900 dark:text-white transition-colors duration-200">
-                1-on-1 Mentorship
-              </h3>
-              <p className="mt-3 text-center text-gray-500 dark:text-gray-300 px-4 transition-colors duration-200">
-                Get personalized guidance from experienced mentors who can help you navigate your learning journey.
-              </p>
-            </div>
-
-            {/* Feature 3 */}
-            <div className={`group ${featuresInView ? 'animate-fadeInUp animate-delay-200' : 'opacity-0'}`}>
-              <div className="relative h-12 w-12 mx-auto mb-4">
-                <div className="absolute inset-0 bg-[#2AB7CA]/10 dark:bg-[#4fc3d5]/20 rounded-xl transform rotate-6 group-hover:rotate-12 transition-transform duration-300"></div>
-                <div className="absolute inset-0 bg-gradient-to-br from-[#2AB7CA] to-[#00BCD4] dark:from-[#4fc3d5] dark:to-[#26C6DA] rounded-xl flex items-center justify-center text-white transform group-hover:scale-110 transition-all duration-300">
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </div>
-              </div>
-              <h3 className="text-xl font-semibold text-center text-gray-900 dark:text-white transition-colors duration-200">
-                Active Community
-              </h3>
-              <p className="mt-3 text-center text-gray-500 dark:text-gray-300 px-4 transition-colors duration-200">
-                Join a vibrant community of learners and mentors to share knowledge and experiences.
-              </p>
-            </div>
-
-            {/* Feature 4 */}
-            <div className={`group ${featuresInView ? 'animate-fadeInUp animate-delay-300' : 'opacity-0'}`}>
-              <div className="relative h-12 w-12 mx-auto mb-4">
-                <div className="absolute inset-0 bg-[#4169E1]/10 dark:bg-[#5278ed]/20 rounded-xl transform rotate-6 group-hover:rotate-12 transition-transform duration-300"></div>
-                <div className="absolute inset-0 bg-gradient-to-br from-[#4169E1] to-[#536DFE] dark:from-[#5278ed] dark:to-[#768FFF] rounded-xl flex items-center justify-center text-white transform group-hover:scale-110 transition-all duration-300">
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-              <h3 className="text-xl font-semibold text-center text-gray-900 dark:text-white transition-colors duration-200">
-                Verified Content
-              </h3>
-              <p className="mt-3 text-center text-gray-500 dark:text-gray-300 px-4 transition-colors duration-200">
-                Access quality-assured learning materials and resources vetted by industry experts.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Section */}
-      <div 
-        ref={statsRef} 
-        className="py-24 bg-gradient-to-r from-[#4169E1]/5 to-[#2AB7CA]/5 dark:from-[#5278ed]/10 dark:to-[#4fc3d5]/10 transition-colors duration-200 animate-gradient"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Stat 1 */}
-            <div className={`relative bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl overflow-hidden transition-all duration-300 transform hover:scale-105 hover:shadow-2xl ${statsInView ? 'animate-fadeInUp animate-delay-0' : 'opacity-0'}`}>
-              <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-[#4169E1]/10 dark:bg-[#5278ed]/20"></div>
-              <h3 className="text-lg font-medium text-gray-500 dark:text-gray-400 mb-2 relative z-10">Total Students</h3>
-              <div className="text-5xl font-bold text-[#4169E1] dark:text-[#5278ed] mb-2 relative z-10">
-                <span id="students-count">0</span>
-              </div>
-              <p className="text-gray-600 dark:text-gray-300 relative z-10">Learners worldwide</p>
-            </div>
-
-            {/* Stat 2 */}
-            <div className={`relative bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl overflow-hidden transition-all duration-300 transform hover:scale-105 hover:shadow-2xl ${statsInView ? 'animate-fadeInUp animate-delay-100' : 'opacity-0'}`}>
-              <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-[#FF6F00]/10 dark:bg-[#FF7F1D]/20"></div>
-              <h3 className="text-lg font-medium text-gray-500 dark:text-gray-400 mb-2 relative z-10">Available Courses</h3>
-              <div className="text-5xl font-bold text-[#FF6F00] dark:text-[#FF7F1D] mb-2 relative z-10">
-                <span id="courses-count">0</span>
-              </div>
-              <p className="text-gray-600 dark:text-gray-300 relative z-10">Expert-crafted courses</p>
-            </div>
-
-            {/* Stat 3 */}
-            <div className={`relative bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl overflow-hidden transition-all duration-300 transform hover:scale-105 hover:shadow-2xl ${statsInView ? 'animate-fadeInUp animate-delay-200' : 'opacity-0'}`}>
-              <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-[#2AB7CA]/10 dark:bg-[#4fc3d5]/20"></div>
-              <h3 className="text-lg font-medium text-gray-500 dark:text-gray-400 mb-2 relative z-10">Satisfaction Rate</h3>
-              <div className="text-5xl font-bold text-[#2AB7CA] dark:text-[#4fc3d5] mb-2 relative z-10">
-                <span id="ratings-count">0</span>%
-              </div>
-              <p className="text-gray-600 dark:text-gray-300 relative z-10">Student satisfaction</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Testimonials */}
-      <div 
-        ref={testimonialsRef} 
-        className="py-24 bg-white dark:bg-gray-800 transition-colors duration-200"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className={`text-center max-w-3xl mx-auto mb-16 ${testimonialsInView ? 'animate-fadeIn' : 'opacity-0'}`}>
-            <span className="inline-block px-3 py-1 text-sm font-semibold bg-[#2AB7CA]/10 dark:bg-[#4fc3d5]/20 text-[#2AB7CA] dark:text-[#4fc3d5] rounded-full mb-4 transition-colors duration-200">
-              Testimonials
-            </span>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white transition-colors duration-200">
-              What our students say
-            </h2>
-            <p className="mt-4 text-xl text-gray-500 dark:text-gray-300 transition-colors duration-200">
-              Success stories from our community of learners
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Testimonial 1 */}
-            <div className={`bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 ${testimonialsInView ? 'animate-fadeInUp animate-delay-0' : 'opacity-0'}`}>
-              <div className="flex items-center mb-6">
-                <div className="h-12 w-12 rounded-full overflow-hidden mr-4">
-                  <Image 
-                    src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=256&q=80" 
-                    alt="Sarah Johnson"
-                    width={48}
-                    height={48}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {testimonials.map((testimonial, i) => (
+                <Card 
+                  key={i} 
+                  className="bg-background transition-all duration-300 hover:shadow-lg hover:scale-[1.03] border-0 shadow-md"
+                  style={{
+                    transform: 'translateY(20px)',
+                    opacity: 0,
+                    animation: mounted ? `fadeInUp 0.6s ease-out forwards ${0.3 + i * 0.1}s` : 'none',
+                    animationPlayState: (scrollY > 1000) ? 'running' : 'paused'
+                  }}
+                >
+                  <CardHeader>
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={testimonial.avatar}
+                        alt={testimonial.name}
+                        className="rounded-full w-12 h-12 object-cover transition-transform duration-300 hover:scale-110"
+                      />
                 <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Sarah Johnson</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Web Developer</p>
+                        <CardTitle className="text-lg">{testimonial.name}</CardTitle>
+                        <CardDescription>{testimonial.role}</CardDescription>
                 </div>
               </div>
-              <p className="text-gray-600 dark:text-gray-300 italic">
-                "The mentorship program transformed my career. I went from struggling with code to landing my dream job in just 6 months!"
-              </p>
-              <div className="mt-4 flex">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <svg key={star} className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex mb-2">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} className="h-4 w-4 text-yellow-500 fill-yellow-500" />
                 ))}
               </div>
-            </div>
-
-            {/* Testimonial 2 */}
-            <div className={`bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 ${testimonialsInView ? 'animate-fadeInUp animate-delay-100' : 'opacity-0'}`}>
-              <div className="flex items-center mb-6">
-                <div className="h-12 w-12 rounded-full overflow-hidden mr-4">
-                  <Image 
-                    src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=256&q=80" 
-                    alt="Michael Chen"
-                    width={48}
-                    height={48}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Michael Chen</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Data Scientist</p>
-                </div>
-              </div>
-              <p className="text-gray-600 dark:text-gray-300 italic">
-                "The courses here are incredibly well-structured. The hands-on projects helped me master complex data science concepts quickly."
-              </p>
-              <div className="mt-4 flex">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <svg key={star} className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                ))}
-              </div>
-            </div>
-
-            {/* Testimonial 3 */}
-            <div className={`bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 ${testimonialsInView ? 'animate-fadeInUp animate-delay-200' : 'opacity-0'}`}>
-              <div className="flex items-center mb-6">
-                <div className="h-12 w-12 rounded-full overflow-hidden mr-4">
-                  <Image 
-                    src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=256&q=80" 
-                    alt="Sophia Martinez"
-                    width={48}
-                    height={48}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Sophia Martinez</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">UX Designer</p>
-                </div>
-              </div>
-              <p className="text-gray-600 dark:text-gray-300 italic">
-                "The community aspect is what sets this platform apart. I've made connections that led to job opportunities and collaborations."
-              </p>
-              <div className="mt-4 flex">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <svg key={star} className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                ))}
-              </div>
+                    <p className="text-muted-foreground italic">"{testimonial.text}"</p>
+                  </CardContent>
+                  <CardFooter className="text-sm text-muted-foreground">Course: {testimonial.course}</CardFooter>
+                </Card>
+              ))}
             </div>
           </div>
-        </div>
-      </div>
+        </section>
 
       {/* CTA Section */}
-      <div className="relative py-24 overflow-hidden">
-        {/* Background */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#4169E1] to-[#2AB7CA] dark:from-[#5278ed] dark:to-[#4fc3d5] opacity-90 transition-colors duration-500 animate-gradient"></div>
-        
-        {/* Decorative circles */}
-        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white opacity-10 mix-blend-overlay"></div>
-        <div className="absolute -bottom-32 -left-32 w-[30rem] h-[30rem] rounded-full bg-white opacity-10 mix-blend-overlay"></div>
-        
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="max-w-3xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 animate-fadeIn">
-              Ready to start your learning journey?
-            </h2>
-            <p className="text-xl text-white text-opacity-90 mb-10 animate-fadeInUp animate-delay-100">
-              Join thousands of students already learning with our expert mentors
-            </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-4 animate-fadeInUp animate-delay-200">
-              <Link
-                href="/register"
-                className="px-8 py-4 rounded-xl bg-white text-[#4169E1] dark:text-[#5278ed] font-medium shadow-lg shadow-blue-700/20 hover:shadow-xl hover:shadow-blue-700/30 hover:-translate-y-1 active:translate-y-0 transform transition-all duration-300"
-              >
-                Get Started for Free
-              </Link>
-              <Link
-                href="/courses"
-                className="px-8 py-4 rounded-xl bg-transparent text-white font-medium border border-white border-opacity-30 hover:bg-white/10 hover:-translate-y-1 active:translate-y-0 transform transition-all duration-300"
+        <section className="py-20 bg-primary text-primary-foreground relative overflow-hidden">
+          <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-5 mix-blend-overlay"></div>
+          <div 
+            className="absolute -top-[500px] -right-[500px] w-[1000px] h-[1000px] bg-primary-foreground/5 rounded-full blur-3xl"
+            style={{
+              transform: `scale(${1 + scrollY * 0.0005}) translateY(${scrollY * 0.05}px)`
+            }}
+          ></div>
+          <div className="container relative z-10">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-8 transform transition-all duration-700 opacity-0" 
+                 style={{animationName: mounted ? 'fadeIn' : 'none', 
+                        animationDuration: '0.8s', 
+                        animationFillMode: 'forwards', 
+                        animationPlayState: (scrollY > 1200) ? 'running' : 'paused'}}>
+              <div className="max-w-2xl">
+                <h2 className="text-3xl font-bold tracking-tight">Ready to Start Your Learning Journey?</h2>
+                <p className="mt-4 text-primary-foreground/80">
+                  Join thousands of students who are already learning and advancing their careers with our expert-led
+                  courses.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Button 
+                  size="lg" 
+                  variant="secondary" 
+                  className="px-8 transition-all duration-300 hover:scale-105 active:scale-95"
               >
                 Browse Courses
-              </Link>
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10 px-8 transition-all duration-300 hover:scale-105 active:scale-95"
+                >
+                  Sign Up Free
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
-  );
+  )
 }
+
+// Sample data
+const categories = [
+  { name: "Web Development", courses: 120, icon: <BookOpen className="h-5 w-5 text-primary" /> },
+  { name: "Data Science", courses: 85, icon: <BookOpen className="h-5 w-5 text-primary" /> },
+  { name: "Business", courses: 95, icon: <BookOpen className="h-5 w-5 text-primary" /> },
+  { name: "Design", courses: 75, icon: <BookOpen className="h-5 w-5 text-primary" /> },
+  { name: "Marketing", courses: 65, icon: <BookOpen className="h-5 w-5 text-primary" /> },
+  { name: "Photography", courses: 40, icon: <BookOpen className="h-5 w-5 text-primary" /> },
+  { name: "Music", courses: 35, icon: <BookOpen className="h-5 w-5 text-primary" /> },
+  { name: "Health & Fitness", courses: 50, icon: <BookOpen className="h-5 w-5 text-primary" /> },
+]
+
+const courses = [
+  {
+    title: "Complete Web Development Bootcamp",
+    description: "Learn HTML, CSS, JavaScript, React, Node.js and more to become a full-stack web developer.",
+    image: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?ixlib=rb-4.0.3",
+    category: "Web Development",
+    level: "Beginner",
+    duration: "12 weeks",
+    rating: 4.9,
+    price: 89.99,
+  },
+  {
+    title: "Data Science Fundamentals",
+    description: "Master the basics of data science, including Python, statistics, and machine learning algorithms.",
+    image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3",
+    category: "Data Science",
+    level: "Intermediate",
+    duration: "8 weeks",
+    rating: 4.7,
+    price: 79.99,
+  },
+  {
+    title: "UI/UX Design Masterclass",
+    description:
+      "Learn the principles of user interface and user experience design to create beautiful, functional products.",
+    image: "https://images.unsplash.com/photo-1561070791-2526d30994b5?ixlib=rb-4.0.3",
+    category: "Design",
+    level: "All Levels",
+    duration: "6 weeks",
+    rating: 4.8,
+    price: 69.99,
+  },
+  {
+    title: "Digital Marketing Strategy",
+    description: "Develop comprehensive digital marketing strategies to grow your business online.",
+    image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?ixlib=rb-4.0.3",
+    category: "Marketing",
+    level: "Beginner",
+    duration: "4 weeks",
+    rating: 4.6,
+    price: 59.99,
+  },
+  {
+    title: "Introduction to Python Programming",
+    description: "Learn the basics of Python programming language and start building your own applications.",
+    image: "https://images.unsplash.com/photo-1526379095098-d400fd0bf935?ixlib=rb-4.0.3",
+    category: "Programming",
+    level: "Beginner",
+    duration: "5 weeks",
+    rating: 4.9,
+    price: 0,
+  },
+  {
+    title: "Business Analytics & Intelligence",
+    description: "Learn how to analyze business data and make data-driven decisions to improve performance.",
+    image: "https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-4.0.3",
+    category: "Business",
+    level: "Advanced",
+    duration: "10 weeks",
+    rating: 4.7,
+    price: 99.99,
+  },
+]
+
+const testimonials = [
+  {
+    name: "Sarah Johnson",
+    role: "Web Developer",
+    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3",
+    text: "The web development bootcamp completely transformed my career. I went from knowing nothing about coding to landing a job as a junior developer in just 3 months!",
+    course: "Complete Web Development Bootcamp",
+  },
+  {
+    name: "Michael Chen",
+    role: "Data Analyst",
+    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-4.0.3",
+    text: "The data science course was exactly what I needed to transition into analytics. The instructor was knowledgeable and the projects were practical and relevant.",
+    course: "Data Science Fundamentals",
+  },
+  {
+    name: "Emily Rodriguez",
+    role: "UX Designer",
+    avatar: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?ixlib=rb-4.0.3",
+    text: "I've taken many design courses, but this one stands out. The curriculum is comprehensive and the feedback from instructors helped me improve my portfolio significantly.",
+    course: "UI/UX Design Masterclass",
+  },
+]

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -65,8 +66,8 @@ public class AdminController {
                 return ResponseEntity.notFound().build();
             }
 
-            if (userDetails.get("username") != null) {
-                existingUser.setUsername((String) userDetails.get("username"));
+            if (userDetails.get("name") != null) {
+                existingUser.setName((String) userDetails.get("name"));
             }
             if (userDetails.get("email") != null) {
                 existingUser.setEmail((String) userDetails.get("email"));
@@ -79,6 +80,30 @@ public class AdminController {
             return ResponseEntity.ok(updatedUser);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error updating user: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/users/{id}/role")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> updateUserRole(@PathVariable String id, @RequestBody Map<String, Object> request) {
+        try {
+            User existingUser = userService.getUserById(id);
+            if (existingUser == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            @SuppressWarnings("unchecked")
+            List<String> roles = (List<String>) request.get("roles");
+            if (roles == null || roles.isEmpty()) {
+                return ResponseEntity.badRequest().body("Roles list cannot be empty");
+            }
+
+            // Convert roles to Set and save
+            existingUser.setRoles(Set.copyOf(roles));
+            User updatedUser = userService.updateUser(id, existingUser);
+            return ResponseEntity.ok(updatedUser);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error updating user role: " + e.getMessage());
         }
     }
 }
