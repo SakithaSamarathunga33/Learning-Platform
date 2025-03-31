@@ -4,8 +4,8 @@ import './globals.css';
 import { Inter } from 'next/font/google';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
+import { ThemeProvider } from '@/app/providers/ThemeProvider';
 import { usePathname } from 'next/navigation';
-import { ThemeProvider } from './providers/ThemeProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -18,16 +18,12 @@ export default function RootLayout({
   const isAdminRoute = pathname?.startsWith('/admin');
 
   return (
-    <html lang="en">
-      <body className={`${inter.className} transition-colors duration-200 dark:bg-gray-900`}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.className} flex flex-col min-h-screen`}>
         <ThemeProvider>
           {!isAdminRoute && <Navbar />}
-          <div className="min-h-screen flex flex-col">
-            <div className="flex-grow">
-              {children}
-            </div>
-            {!isAdminRoute && <Footer />}
-          </div>
+          <main className="flex-grow">{children}</main>
+          {!isAdminRoute && <Footer />}
         </ThemeProvider>
       </body>
     </html>

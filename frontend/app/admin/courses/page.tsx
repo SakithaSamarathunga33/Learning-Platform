@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
 import { useState, useEffect } from "react"
@@ -8,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { jsPDF } from "jspdf"
-import "jspdf-autotable"
+import autoTable from "jspdf-autotable"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -92,12 +93,7 @@ export default function CoursesPage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>("")
-  const [stats, setStats] = useState({
-    totalCourses: 0,
-    publishedCourses: 0,
-    newCourses: 0,
-    draftCourses: 0
-  })
+  const [totalCourses, setTotalCourses] = useState(0)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingCourse, setEditingCourse] = useState<Course | null>(null)
   const [editForm, setEditForm] = useState({
@@ -105,7 +101,8 @@ export default function CoursesPage() {
     description: '',
     price: 0,
     category: '',
-    isPublished: false
+    isPublished: false,
+    thumbnailUrl: ''
   })
   const [alert, setAlert] = useState<{
     type: 'success' | 'error' | 'info';
@@ -170,20 +167,7 @@ export default function CoursesPage() {
       
       setCourses(transformedCourses);
       
-      // Calculate stats
-      const totalCourses = transformedCourses.length;
-      const publishedCourses = transformedCourses.filter(c => c.isPublished).length;
-      const draftCourses = transformedCourses.filter(c => !c.isPublished).length;
-      
-      // This is a placeholder - you should get real data about new courses from your API
-      const newCourses = Math.floor(totalCourses * 0.1); // Just assuming 10% are new courses for now
-      
-      setStats({
-        totalCourses,
-        publishedCourses,
-        newCourses,
-        draftCourses
-      });
+      setTotalCourses(transformedCourses.length);
       
       setLoading(false);
     } catch (err) {
@@ -206,18 +190,7 @@ export default function CoursesPage() {
         setCourses(courses.filter(course => course.id !== courseId));
         setSelectedCourses(selectedCourses.filter(id => id !== courseId));
         
-        // Update stats
-        const courseToDelete = courses.find(c => c.id === courseId);
-        if (courseToDelete) {
-          const newStats = {...stats};
-          newStats.totalCourses--;
-          if (courseToDelete.isPublished) {
-            newStats.publishedCourses--;
-          } else {
-            newStats.draftCourses--;
-          }
-          setStats(newStats);
-        }
+        setTotalCourses(totalCourses - 1);
 
         // Show success alert
         setAlert({
@@ -240,7 +213,8 @@ export default function CoursesPage() {
       description: course.description,
       price: course.price,
       category: course.category,
-      isPublished: course.isPublished
+      isPublished: course.isPublished,
+      thumbnailUrl: course.thumbnailUrl
     });
     setIsEditDialogOpen(true);
   };
@@ -255,33 +229,43 @@ export default function CoursesPage() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          ...editingCourse,
-          ...editForm,
-          published: editForm.isPublished
+          title: editForm.title,
+          description: editForm.description,
+          price: editForm.price,
+          category: editForm.category,
+          published: editForm.isPublished,
+          thumbnailUrl: editForm.thumbnailUrl
         })
       });
 
       if (!response) return; // User was redirected to login
 
       if (!response.ok) {
-        throw new Error('Failed to update course');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update course');
       }
 
       const updatedCourse = await response.json();
-      setCourses(courses.map(course => 
-        course.id === editingCourse.id ? updatedCourse : course
-      ));
+      const updatedCourses = courses.map(course =>
+        course.id === editingCourse.id ? {
+          ...course,
+          ...updatedCourse,
+          students: course.students,
+          rating: course.rating,
+          createdAt: course.createdAt
+        } : course
+      );
+      
+      setCourses(updatedCourses);
+      
+      setTotalCourses(updatedCourses.length);
+
+      toast.success('Course updated successfully');
       setIsEditDialogOpen(false);
       setEditingCourse(null);
-
-      // Show success alert
-      setAlert({
-        type: 'success',
-        title: 'Course updated',
-        description: 'The course has been successfully updated.'
-      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update course');
+      toast.error(err instanceof Error ? err.message : 'Failed to update course');
+      console.error('Update error:', err);
     }
   };
 
@@ -376,7 +360,7 @@ export default function CoursesPage() {
     ]);
 
     // Add table
-    doc.autoTable({
+    autoTable(doc, {
       head: [['Title', 'Category', 'Instructor', 'Status', 'Price', 'Created']],
       body: tableData,
       startY: 25,
@@ -399,61 +383,20 @@ export default function CoursesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-primary/10 rounded-full">
-                <BookOpen className="h-6 w-6 text-primary" />
-      </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Courses</p>
-                <p className="text-2xl font-bold">{stats.totalCourses}</p>
-              </div>
+      {/* Stats Card */}
+      <Card className="bg-primary/5 border-primary/20 max-w-md">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-primary/10 rounded-full">
+              <BookOpen className="h-6 w-6 text-primary" />
             </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-green-500/5 border-green-500/20">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-green-500/10 rounded-full">
-                <BookOpen className="h-6 w-6 text-green-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Published</p>
-                <p className="text-2xl font-bold">{stats.publishedCourses}</p>
-              </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Total Courses</p>
+              <p className="text-2xl font-bold">{totalCourses}</p>
             </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-blue-500/5 border-blue-500/20">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-500/10 rounded-full">
-                <BookOpen className="h-6 w-6 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">New Courses</p>
-                <p className="text-2xl font-bold">{stats.newCourses}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-yellow-500/5 border-yellow-500/20">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-yellow-500/10 rounded-full">
-                <BookOpen className="h-6 w-6 text-yellow-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Draft</p>
-                <p className="text-2xl font-bold">{stats.draftCourses}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Main Content */}
       <Card>
@@ -537,7 +480,7 @@ export default function CoursesPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline">{course.category}</Badge>
-                      <Badge variant={course.isPublished ? "success" : "secondary"}>
+                      <Badge variant={course.isPublished ? "default" : "secondary"}>
                         {course.isPublished ? "Published" : "Draft"}
                       </Badge>
                     </div>
@@ -735,6 +678,15 @@ export default function CoursesPage() {
                 value={editForm.price}
                 onChange={(e) => setEditForm({ ...editForm, price: Number(e.target.value) })}
                 placeholder="Enter course price"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-thumbnail">Thumbnail URL</Label>
+              <Input
+                id="edit-thumbnail"
+                value={editForm.thumbnailUrl}
+                onChange={(e) => setEditForm({ ...editForm, thumbnailUrl: e.target.value })}
+                placeholder="Enter thumbnail URL"
               />
             </div>
             <div className="grid gap-2">
