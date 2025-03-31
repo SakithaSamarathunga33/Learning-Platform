@@ -59,10 +59,7 @@ export default function HomePage() {
     const handleScroll = () => {
       setScrollY(window.scrollY);
     };
-
-    // Set mounted to true after initial render
-    setMounted(true);
-
+    setMounted(true); // Set mounted after initial render
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -70,15 +67,11 @@ export default function HomePage() {
   // Update current slide when carousel changes
   useEffect(() => {
     if (!carouselApi) return;
-
     const onSelect = () => {
       setActiveSlide(carouselApi.selectedScrollSnap());
     };
-
     carouselApi.on("select", onSelect);
-    // Initial call to set the correct active slide
-    onSelect();
-    
+    onSelect(); // Initial call
     return () => {
       carouselApi.off("select", onSelect);
     };
@@ -87,13 +80,9 @@ export default function HomePage() {
   // Auto rotate slides
   useEffect(() => {
     if (!carouselApi || isPaused) return;
-    
-    // Clear any existing interval when dependencies change
     if (autoRotateRef.current) {
       clearInterval(autoRotateRef.current);
     }
-    
-    // Set new interval
     autoRotateRef.current = window.setInterval(() => {
       if (activeSlide === courseImages.length - 1) {
         carouselApi.scrollTo(0);
@@ -101,8 +90,6 @@ export default function HomePage() {
         carouselApi.scrollNext();
       }
     }, 5000); // Change image every 5 seconds
-    
-    // Cleanup function
     return () => {
       if (autoRotateRef.current) {
         clearInterval(autoRotateRef.current);
@@ -116,7 +103,6 @@ export default function HomePage() {
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 1000);
-    
     return () => clearTimeout(timer);
   }, []);
 
@@ -150,8 +136,8 @@ export default function HomePage() {
       <main>
       {/* Hero Section */}
         <section className="relative py-20 md:py-32 bg-gradient-to-r from-primary/10 via-primary/5 to-background overflow-hidden">
-          <div 
-            className="absolute inset-0 opacity-20" 
+          <div
+            className="absolute inset-0 opacity-20"
             style={{
               backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
               transform: `translateY(${scrollY * 0.1}px)`
@@ -170,15 +156,15 @@ export default function HomePage() {
                 certificates.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                <Button 
-                  size="lg" 
+                <Button
+                  size="lg"
                   className="px-8 transition-all duration-300 hover:scale-105 hover:shadow-lg active:scale-95"
                 >
                   Explore Courses
                 </Button>
-                <Button 
-                  size="lg" 
-                  variant="outline" 
+                <Button
+                  size="lg"
+                  variant="outline"
                   className="px-8 transition-all duration-300 hover:scale-105 hover:bg-muted/50 active:scale-95"
                 >
                   View Categories
@@ -201,13 +187,13 @@ export default function HomePage() {
             </div>
             <div className="flex-1 relative transform transition-all duration-700 opacity-0 translate-x-8 animate-fade-in-up animation-delay-300">
               {/* Image Carousel */}
-              <div 
+              <div
                 className="relative rounded-lg overflow-hidden shadow-2xl"
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
               >
-                <Carousel 
-                  opts={{ 
+                <Carousel
+                  opts={{
                     loop: true,
                     align: "start",
                   }}
@@ -226,7 +212,7 @@ export default function HomePage() {
                           }`}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-50"></div>
-                        <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 transform transition-all duration-500" style={{ 
+                        <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 transform transition-all duration-500" style={{
                           transform: activeSlide === index ? 'translateY(0)' : 'translateY(10px)',
                           opacity: activeSlide === index ? 1 : 0
                         }}>
@@ -236,10 +222,10 @@ export default function HomePage() {
                       </CarouselItem>
                     ))}
                   </CarouselContent>
-                  
+
                   <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-8 w-8 opacity-70 hover:opacity-100 transition-opacity" />
                   <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-8 w-8 opacity-70 hover:opacity-100 transition-opacity" />
-                  
+
                   <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
                     {courseImages.map((_, index) => (
                       <button
@@ -273,21 +259,21 @@ export default function HomePage() {
         <section className="py-16 bg-muted/30 relative">
           <div className="container">
             <div className="flex flex-col md:flex-row justify-between items-center mb-12">
-              <div className="transform transition-all duration-700 opacity-0 translate-y-8" 
-                   style={{animationName: mounted ? 'fadeInUp' : 'none', 
-                          animationDuration: '0.6s', 
-                          animationFillMode: 'forwards', 
+              <div className="transform transition-all duration-700 opacity-0 translate-y-8"
+                   style={{animationName: mounted ? 'fadeInUp' : 'none',
+                          animationDuration: '0.6s',
+                          animationFillMode: 'forwards',
                           animationDelay: '0.1s',
                           animationPlayState: (scrollY > 100) ? 'running' : 'paused'}}>
                 <h2 className="text-3xl font-bold tracking-tight">Browse Top Categories</h2>
                 <p className="text-muted-foreground mt-2">Explore our most popular course categories</p>
               </div>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 className="mt-4 md:mt-0 transform transition-all duration-700 opacity-0 translate-y-8 hover:scale-105"
-                style={{animationName: mounted ? 'fadeInUp' : 'none', 
-                       animationDuration: '0.6s', 
-                       animationFillMode: 'forwards', 
+                style={{animationName: mounted ? 'fadeInUp' : 'none',
+                       animationDuration: '0.6s',
+                       animationFillMode: 'forwards',
                        animationDelay: '0.3s',
                        animationPlayState: (scrollY > 100) ? 'running' : 'paused'}}
               >
@@ -297,8 +283,8 @@ export default function HomePage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {categories.map((category, i) => (
-                <Card 
-                  key={category.name} 
+                <Card
+                  key={category.name}
                   className="group hover:shadow-md transition-all duration-300 hover:scale-[1.03] border-0 shadow-lg"
                   style={{
                     transform: 'translateY(20px)',
@@ -326,21 +312,21 @@ export default function HomePage() {
         <section className="py-16 relative">
           <div className="container">
             <div className="flex flex-col md:flex-row justify-between items-center mb-12">
-              <div className="transform transition-all duration-700 opacity-0 translate-y-8" 
-                   style={{animationName: mounted ? 'fadeInUp' : 'none', 
-                          animationDuration: '0.6s', 
-                          animationFillMode: 'forwards', 
+              <div className="transform transition-all duration-700 opacity-0 translate-y-8"
+                   style={{animationName: mounted ? 'fadeInUp' : 'none',
+                          animationDuration: '0.6s',
+                          animationFillMode: 'forwards',
                           animationDelay: '0.1s',
                           animationPlayState: (scrollY > 500) ? 'running' : 'paused'}}>
                 <h2 className="text-3xl font-bold tracking-tight">Featured Courses</h2>
                 <p className="text-muted-foreground mt-2">Learn from industry experts and advance your skills</p>
         </div>
-              <Tabs 
-                defaultValue="popular" 
-                className="mt-4 md:mt-0 transform transition-all duration-700 opacity-0 translate-y-8" 
-                style={{animationName: mounted ? 'fadeInUp' : 'none', 
-                       animationDuration: '0.6s', 
-                       animationFillMode: 'forwards', 
+              <Tabs
+                defaultValue="popular"
+                className="mt-4 md:mt-0 transform transition-all duration-700 opacity-0 translate-y-8"
+                style={{animationName: mounted ? 'fadeInUp' : 'none',
+                       animationDuration: '0.6s',
+                       animationFillMode: 'forwards',
                        animationDelay: '0.3s',
                        animationPlayState: (scrollY > 500) ? 'running' : 'paused'}}
               >
@@ -354,8 +340,8 @@ export default function HomePage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {courses.map((course, i) => (
-                <Card 
-                  key={course.title} 
+                <Card
+                  key={course.title}
                   className="overflow-hidden group transition-all duration-300 hover:shadow-lg hover:scale-[1.02] border-0 shadow-md"
                   style={{
                     transform: 'translateY(20px)',
@@ -378,7 +364,7 @@ export default function HomePage() {
                         {course.category}
                       </Badge>
                       <div className="flex items-center">
-                        <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                        <Star className="h-4 w-4 text-warning-yellow fill-warning-yellow" /> {/* Use theme color */}
                         <span className="ml-1 text-sm font-medium">{course.rating}</span>
                 </div>
               </div>
@@ -399,8 +385,8 @@ export default function HomePage() {
             </div>
 
             <div className="flex justify-center mt-12">
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 className="transform transition-all duration-300 hover:scale-105 hover:shadow-md active:scale-95"
                 style={{
                   transform: 'translateY(20px)',
@@ -418,10 +404,10 @@ export default function HomePage() {
         {/* Testimonials */}
         <section className="py-16 bg-muted/30">
           <div className="container">
-            <div className="text-center mb-12 transform transition-all duration-700 opacity-0 translate-y-8" 
-                 style={{animationName: mounted ? 'fadeInUp' : 'none', 
-                        animationDuration: '0.6s', 
-                        animationFillMode: 'forwards', 
+            <div className="text-center mb-12 transform transition-all duration-700 opacity-0 translate-y-8"
+                 style={{animationName: mounted ? 'fadeInUp' : 'none',
+                        animationDuration: '0.6s',
+                        animationFillMode: 'forwards',
                         animationPlayState: (scrollY > 900) ? 'running' : 'paused'}}>
               <h2 className="text-3xl font-bold tracking-tight">What Our Students Say</h2>
               <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">
@@ -431,8 +417,8 @@ export default function HomePage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {testimonials.map((testimonial, i) => (
-                <Card 
-                  key={i} 
+                <Card
+                  key={i}
                   className="bg-background transition-all duration-300 hover:shadow-lg hover:scale-[1.03] border-0 shadow-md"
                   style={{
                     transform: 'translateY(20px)',
@@ -457,9 +443,9 @@ export default function HomePage() {
                   <CardContent>
                     <div className="flex mb-2">
                       {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                ))}
-              </div>
+                        <Star key={i} className="h-4 w-4 text-warning-yellow fill-warning-yellow" />
+                      ))}
+                    </div>
                     <p className="text-muted-foreground italic">"{testimonial.text}"</p>
                   </CardContent>
                   <CardFooter className="text-sm text-muted-foreground">Course: {testimonial.course}</CardFooter>
@@ -472,17 +458,17 @@ export default function HomePage() {
       {/* CTA Section */}
         <section className="py-20 bg-primary text-primary-foreground relative overflow-hidden">
           <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-5 mix-blend-overlay"></div>
-          <div 
+          <div
             className="absolute -top-[500px] -right-[500px] w-[1000px] h-[1000px] bg-primary-foreground/5 rounded-full blur-3xl"
             style={{
               transform: `scale(${1 + scrollY * 0.0005}) translateY(${scrollY * 0.05}px)`
             }}
           ></div>
           <div className="container relative z-10">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-8 transform transition-all duration-700 opacity-0" 
-                 style={{animationName: mounted ? 'fadeIn' : 'none', 
-                        animationDuration: '0.8s', 
-                        animationFillMode: 'forwards', 
+            <div className="flex flex-col md:flex-row items-center justify-between gap-8 transform transition-all duration-700 opacity-0"
+                 style={{animationName: mounted ? 'fadeIn' : 'none',
+                        animationDuration: '0.8s',
+                        animationFillMode: 'forwards',
                         animationPlayState: (scrollY > 1200) ? 'running' : 'paused'}}>
               <div className="max-w-2xl">
                 <h2 className="text-3xl font-bold tracking-tight">Ready to Start Your Learning Journey?</h2>
@@ -492,9 +478,9 @@ export default function HomePage() {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button 
-                  size="lg" 
-                  variant="secondary" 
+                <Button
+                  size="lg"
+                  variant="secondary"
                   className="px-8 transition-all duration-300 hover:scale-105 active:scale-95"
               >
                 Browse Courses
@@ -512,10 +498,10 @@ export default function HomePage() {
         </section>
       </main>
     </div>
-  )
+  );
 }
 
-// Sample data
+// Sample data (Defined outside the component)
 const categories = [
   { name: "Web Development", courses: 120, icon: <BookOpen className="h-5 w-5 text-primary" /> },
   { name: "Data Science", courses: 85, icon: <BookOpen className="h-5 w-5 text-primary" /> },
@@ -525,7 +511,7 @@ const categories = [
   { name: "Photography", courses: 40, icon: <BookOpen className="h-5 w-5 text-primary" /> },
   { name: "Music", courses: 35, icon: <BookOpen className="h-5 w-5 text-primary" /> },
   { name: "Health & Fitness", courses: 50, icon: <BookOpen className="h-5 w-5 text-primary" /> },
-]
+];
 
 const courses = [
   {
@@ -589,7 +575,7 @@ const courses = [
     rating: 4.7,
     price: 99.99,
   },
-]
+];
 
 const testimonials = [
   {
@@ -613,4 +599,4 @@ const testimonials = [
     text: "I've taken many design courses, but this one stands out. The curriculum is comprehensive and the feedback from instructors helped me improve my portfolio significantly.",
     course: "UI/UX Design Masterclass",
   },
-]
+];
