@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+  :root { /* Restored selector */
+    --background: 0 0% 100%; /* Uncommented */
+    --foreground: 0 0% 3.9%; /* Uncommented */
     --card: 0 0% 100%;
     --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 100%;
@@ -27,13 +27,13 @@
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-  }
+    --chart-4: 43 74% 66%; /* Uncommented */
+    --chart-5: 27 87% 67%; /* Uncommented */
+  } /* Restored closing brace */
 
-  .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
+  .dark { /* Restored selector */
+    --background: 0 0% 3.9%; /* Uncommented */
+    --foreground: 0 0% 98%; /* Uncommented */
     --card: 0 0% 3.9%;
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 3.9%;
@@ -54,11 +54,12 @@
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-  }
+    --chart-4: 280 65% 60%; /* Uncommented */
+    --chart-5: 340 75% 55%; /* Uncommented */
+  } /* Restored closing brace */
 }
 
+/* Keep base styles for body and * */
 @layer base {
   * {
     @apply border-border;
@@ -67,6 +68,8 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Keep utilities */
 
 @layer utilities {
   .animation-delay-200 {
@@ -90,4 +93,4 @@
   .animation-delay-4000 {
     animation-delay: 4s;
   }
-} 
+}

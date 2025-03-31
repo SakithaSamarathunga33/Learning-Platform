@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Separator } from "@/components/ui/separator"
-import { BookOpen, Eye, EyeOff, ArrowLeft, Github, Mail } from "lucide-react"
+import { BookOpen, Eye, EyeOff, ArrowLeft, Mail } from "lucide-react"
 
 // Login form schema
 const loginFormSchema = z.object({
@@ -339,16 +339,7 @@ export default function AuthPage() {
                   </div>
                 </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <Button 
-                      variant="outline" 
-                    type="button"
-                      className="h-11 transition-all duration-300 hover:scale-[1.03] hover:shadow-sm hover:bg-muted/50 active:scale-95" 
-                    disabled={isLoading}
-                  >
-                      <Github className="mr-2 h-4 w-4" />
-                      GitHub
-                    </Button>
+                  <div className="flex justify-center">
                     <Button 
                       variant="outline" 
                       type="button" 
@@ -542,21 +533,12 @@ export default function AuthPage() {
                 </div>
               </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <Button 
-                      variant="outline" 
-                      type="button" 
-                      className="h-11 transition-all duration-300 hover:scale-[1.03] hover:shadow-sm hover:bg-muted/50 active:scale-95" 
+                  <div className="flex justify-center">
+                    <Button
+                      variant="outline"
+                      type="button"
+                      className="h-11 transition-all duration-300 hover:scale-[1.03] hover:shadow-sm hover:bg-muted/50 active:scale-95"
                       disabled={isLoading}
-                    >
-                      <Github className="mr-2 h-4 w-4" />
-                      GitHub
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      type="button" 
-                      className="h-11 transition-all duration-300 hover:scale-[1.03] hover:shadow-sm hover:bg-muted/50 active:scale-95" 
-                      disabled={isLoading} 
                       onClick={handleGoogleLogin}
                     >
                       <Mail className="mr-2 h-4 w-4" />

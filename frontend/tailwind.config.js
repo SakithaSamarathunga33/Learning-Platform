@@ -87,8 +87,10 @@ module.exports = {
     		animation: {
     			'fade-in': 'fadeIn 0.6s ease-out forwards',
     			'fade-in-up': 'fadeInUp 0.6s ease-out forwards',
-    			'blob': 'blob 7s infinite',
-    			'shake': 'shake 0.5s ease-in-out',
+    			blob: 'blob 7s infinite',
+    			shake: 'shake 0.5s ease-in-out',
+    			'accordion-down': 'accordion-down 0.2s ease-out',
+    			'accordion-up': 'accordion-up 0.2s ease-out'
     		},
     		keyframes: {
     			fadeIn: {
@@ -136,25 +138,43 @@ module.exports = {
     				'75%': {
     					transform: 'translateX(-5px)'
     				}
+    			},
+    			'accordion-down': {
+    				from: {
+    					height: '0'
+    				},
+    				to: {
+    					height: 'var(--radix-accordion-content-height)'
+    				}
+    			},
+    			'accordion-up': {
+    				from: {
+    					height: 'var(--radix-accordion-content-height)'
+    				},
+    				to: {
+    					height: '0'
+    				}
     			}
     		},
-    		boxShadow: {
-    			soft: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-    			hover: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
-    		},
-    		backgroundImage: {
-    			'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-    			'hero-pattern': "url('/background-pattern.svg')"
-    		},
-    		borderRadius: {
-    			lg: 'var(--radius)',
+		boxShadow: {
+			soft: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+			hover: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+		},
+		backgroundImage: {
+			'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+			'hero-pattern': 'url("/background-pattern.svg")' // Fixed quotes
+		},
+		borderRadius: {
+			lg: 'var(--radius)',
     			md: 'calc(var(--radius) - 2px)',
     			sm: 'calc(var(--radius) - 4px)'
-    		}
+    		}, // Added missing comma here
     	}
     },
     plugins: [
+      // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
       require("tailwindcss-animate"),
+      // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
       require("@tailwindcss/forms")
     ],
   }
