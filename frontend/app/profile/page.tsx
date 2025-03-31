@@ -1,8 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react'; // Added useRef
 import { useRouter } from 'next/navigation';
-import ImageUpload from '@/components/ImageUpload';
+import ImageUpload, { ImageUploadHandle } from '@/components/ImageUpload'; // Fixed import and added ImageUploadHandle
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Fixed import
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // Fixed import
+import { Button } from '@/components/ui/button'; // Fixed import
+import { Input } from '@/components/ui/input'; // Fixed import
+import { Textarea } from '@/components/ui/textarea'; // Fixed import
+import { Badge } from '@/components/ui/badge'; // Fixed import
+import {
+  User,
+  Settings,
+  Briefcase,
+  GraduationCap,
+  MapPin,
+  Mail,
+  Award,
+  CheckCircle,
+  Pencil
+} from 'lucide-react';
 
 interface User {
   id: string;
@@ -12,6 +29,11 @@ interface User {
   name?: string;
   provider?: string;
   roles: string[];
+  bio?: string;
+  location?: string;
+  website?: string;
+  occupation?: string;
+  skills?: string;
 }
 
 export default function ProfilePage() {
@@ -19,9 +41,10 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
   const [editedUser, setEditedUser] = useState<User | null>(null);
+  const [activeTab, setActiveTab] = useState('profile');
   const router = useRouter();
+  const imageUploadRef = useRef<ImageUploadHandle>(null); // Added ref for ImageUpload
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -35,7 +58,6 @@ export default function ProfilePage() {
     if (userStr) {
       try {
         const userData = JSON.parse(userStr);
-        // Ensure we have all required fields with proper defaults
         const completeUserData = {
           ...userData,
           name: userData.name || '',
@@ -43,7 +65,12 @@ export default function ProfilePage() {
           username: userData.username || '',
           email: userData.email || '',
           provider: userData.provider || 'local',
-          roles: userData.roles || []
+          roles: userData.roles || [],
+          bio: userData.bio || '',
+          location: userData.location || '',
+          website: userData.website || '',
+          occupation: userData.occupation || '',
+          skills: userData.skills || ''
         };
         setUser(completeUserData);
         setEditedUser(completeUserData);
@@ -70,7 +97,6 @@ export default function ProfilePage() {
       }
 
       const data = await response.json();
-      // Ensure we have all required fields with proper defaults
       const userData = {
         id: data.id || '',
         username: data.username || '',
@@ -78,12 +104,16 @@ export default function ProfilePage() {
         name: data.name || '',
         picture: data.picture || '',
         provider: data.provider || 'local',
-        roles: data.roles || []
+        roles: data.roles || [],
+        bio: data.bio || '',
+        location: data.location || '',
+        website: data.website || '',
+        occupation: data.occupation || '',
+        skills: data.skills || ''
       };
       
       setUser(userData);
       setEditedUser(userData);
-      // Update localStorage with complete user data
       localStorage.setItem('user', JSON.stringify(userData));
     } catch (err) {
       setError('Failed to load user data');
@@ -118,38 +148,28 @@ export default function ProfilePage() {
       }
 
       const updatedUser = await response.json();
-      // Ensure we have all required fields
       const completeUserData = {
         ...updatedUser,
         name: updatedUser.name || '',
         picture: updatedUser.picture || '',
         username: updatedUser.username || '',
         email: updatedUser.email || '',
-        provider: updatedUser.provider || 'local'
+        provider: updatedUser.provider || 'local',
+        bio: updatedUser.bio || '',
+        location: updatedUser.location || '',
+        website: updatedUser.website || '',
+        occupation: updatedUser.occupation || '',
+        skills: updatedUser.skills || ''
       };
       
       setUser(completeUserData);
       setEditedUser(completeUserData);
-      
-      // Update localStorage with the new user data
       localStorage.setItem('user', JSON.stringify(completeUserData));
       
-      // Dispatch custom event to update navbar with new profile picture
-      console.log('Dispatching userDataChanged event with updated picture:', completeUserData.picture);
-      try {
-        // Create and dispatch a CustomEvent for better browser compatibility
-        const event = new CustomEvent('userDataChanged');
-        window.dispatchEvent(event);
-      } catch (e) {
-        // Fallback for older browsers
-        console.error('Error creating custom event:', e);
-        const event = document.createEvent('Event');
-        event.initEvent('userDataChanged', true, true);
-        window.dispatchEvent(event);
-      }
+      const event = new CustomEvent('userDataChanged');
+      window.dispatchEvent(event);
       
-      setIsEditing(false);
-      setSuccess('Profile updated successfully!');
+      setSuccess('Profile picture updated successfully!');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error updating profile picture:', err);
@@ -157,7 +177,7 @@ export default function ProfilePage() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (!editedUser) return;
     const { name, value } = e.target;
     setEditedUser(prev => prev ? { ...prev, [name]: value } : null);
@@ -174,27 +194,24 @@ export default function ProfilePage() {
         return;
       }
 
-      // Create an object with only the changed fields
       const updatedFields: Partial<User> = {};
       
-      // For Google users, only allow updating name and picture
       if (user.provider === 'google') {
-        if (editedUser.name !== user.name) {
-          updatedFields.name = editedUser.name;
-        }
+        if (editedUser.name !== user.name) updatedFields.name = editedUser.name;
+        if (editedUser.bio !== user.bio) updatedFields.bio = editedUser.bio;
+        if (editedUser.location !== user.location) updatedFields.location = editedUser.location;
+        if (editedUser.occupation !== user.occupation) updatedFields.occupation = editedUser.occupation;
       } else {
-        // For regular users, allow updating username and name
-        if (editedUser.username !== user.username) {
-          updatedFields.username = editedUser.username;
-        }
-        if (editedUser.name !== user.name) {
-          updatedFields.name = editedUser.name;
-        }
+        if (editedUser.username !== user.username) updatedFields.username = editedUser.username;
+        if (editedUser.name !== user.name) updatedFields.name = editedUser.name;
+        if (editedUser.bio !== user.bio) updatedFields.bio = editedUser.bio;
+        if (editedUser.location !== user.location) updatedFields.location = editedUser.location;
+        if (editedUser.website !== user.website) updatedFields.website = editedUser.website;
+        if (editedUser.occupation !== user.occupation) updatedFields.occupation = editedUser.occupation;
+        if (editedUser.skills !== user.skills) updatedFields.skills = editedUser.skills;
       }
 
-      // If no fields have changed, don't make the request
       if (Object.keys(updatedFields).length === 0) {
-        setIsEditing(false);
         return;
       }
 
@@ -213,20 +230,23 @@ export default function ProfilePage() {
       }
 
       const updatedUser = await response.json();
-      // Ensure we have all required fields
       const completeUserData = {
         ...updatedUser,
         name: updatedUser.name || '',
         picture: updatedUser.picture || '',
         username: updatedUser.username || '',
         email: updatedUser.email || '',
-        provider: updatedUser.provider || 'local'
+        provider: updatedUser.provider || 'local',
+        bio: updatedUser.bio || '',
+        location: updatedUser.location || '',
+        website: updatedUser.website || '',
+        occupation: updatedUser.occupation || '',
+        skills: updatedUser.skills || ''
       };
       
       setUser(completeUserData);
       setEditedUser(completeUserData);
       localStorage.setItem('user', JSON.stringify(completeUserData));
-      setIsEditing(false);
       setSuccess('Profile updated successfully!');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
@@ -237,23 +257,10 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200">
-        <div className="container mx-auto px-4 py-8 mt-16">
-          <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 transition-colors duration-200">
-            <div className="flex justify-between items-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white transition-colors duration-200">Profile Settings</h1>
-              {!isEditing && (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors duration-200"
-                >
-                  Edit Profile
-                </button>
-              )}
-            </div>
-            <div className="flex justify-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4169E1] dark:border-[#5278ed]"></div>
-            </div>
+      <div className="min-h-screen flex flex-col">
+        <div className="container py-12 flex-1">
+          <div className="flex justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
           </div>
         </div>
       </div>
@@ -261,112 +268,314 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200">
-      <div className="container mx-auto px-4 py-8 mt-16">
-        <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 transition-colors duration-200">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white transition-colors duration-200">Profile Settings</h1>
-            {!isEditing && (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors duration-200"
-              >
-                Edit Profile
-              </button>
-            )}
-          </div>
-
-          {error && (
-            <div className="mb-6 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-md transition-colors duration-200">
-              <p className="text-red-700 dark:text-red-400 transition-colors duration-200">{error}</p>
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-6 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 p-4 rounded-md transition-colors duration-200">
-              <p className="text-green-700 dark:text-green-400 transition-colors duration-200">{success}</p>
-            </div>
-          )}
-
-          <div className="flex flex-col items-center mb-8">
-            <div className="relative">
+    <div className="min-h-screen flex flex-col">
+      {/* Profile Header */}
+      <section className="bg-primary/10 py-12">
+        <div className="container">
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
+            <div className="relative group">
               <ImageUpload
+                ref={imageUploadRef} // Added ref
                 currentImage={user?.picture}
                 onImageUpload={handleImageUpload}
-                className="mb-4"
+                className="w-32 h-32 border-4 border-background rounded-full"
               />
-              <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
-                <div className="bg-blue-600 dark:bg-blue-500 text-white px-3 py-1 rounded-full text-sm transition-colors duration-200">
-                  Change Photo
+              <button
+                onClick={() => imageUploadRef.current?.triggerFileInput()} // Use ref to trigger click
+                className="absolute -bottom-2 -right-2 bg-primary text-white p-2 rounded-full shadow-md hover:bg-primary/90 transition-all"
+                title="Upload new photo"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                <h1 className="text-3xl font-bold">{user?.name || user?.username}</h1>
+                <Badge className="w-fit mx-auto md:mx-0">
+                  {user?.roles.includes('ROLE_ADMIN') ? 'Admin' : 'User'}
+                </Badge>
+              </div>
+              <p className="text-muted-foreground mt-2 max-w-2xl">
+                {user?.bio || 'No bio provided'}
+              </p>
+              {user?.skills && (
+                <div className="flex flex-wrap gap-2 mt-4 justify-center md:justify-start">
+                  {user.skills.split(',').map(skill => (
+                    <Badge key={skill.trim()} variant="outline" className="bg-primary/10">
+                      {skill.trim()}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col gap-2 min-w-[150px]">
+              <div className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Email</p>
+                  <p className="font-medium">{user?.email}</p>
                 </div>
               </div>
+              {user?.location && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Location</p>
+                    <p className="font-medium">{user.location}</p>
+                  </div>
+                </div>
+              )}
+              {user?.provider && (
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Provider</p>
+                    <p className="font-medium capitalize">{user.provider}</p>
+                  </div>
+                </div>
+              )}
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-4 transition-colors duration-200">
-              Click to upload a new profile picture
-            </p>
           </div>
+        </div>
+      </section>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200">Username</label>
-              {isEditing ? (
-                <input
-                  type="text"
-                  name="username"
-                  value={editedUser?.username || ''}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400 dark:bg-gray-700 dark:text-white transition-colors duration-200"
-                  disabled={user?.provider === 'google'}
-                />
-              ) : (
-                <p className="mt-1 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg dark:text-gray-200 transition-colors duration-200">{user?.username}</p>
-              )}
+      {/* Main Content */}
+      <section className="py-12 flex-1">
+        <div className="container">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <div className="border-b">
+              <div className="flex overflow-x-auto">
+                <TabsList className="bg-transparent h-auto p-0 flex gap-6">
+                  <TabsTrigger
+                    value="profile"
+                    className="flex items-center gap-2 px-1 py-4 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none bg-transparent h-auto"
+                  >
+                    <User className="h-4 w-4" />
+                    Profile
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="settings"
+                    className="flex items-center gap-2 px-1 py-4 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none bg-transparent h-auto"
+                  >
+                    <Settings className="h-4 w-4" />
+                    Settings
+                  </TabsTrigger>
+                </TabsList>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200">Email</label>
-              <p className="mt-1 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg dark:text-gray-200 transition-colors duration-200">{user?.email}</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200">Name</label>
-              {isEditing ? (
-                <input
-                  type="text"
-                  name="name"
-                  value={editedUser?.name || ''}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400 dark:bg-gray-700 dark:text-white transition-colors duration-200"
-                />
-              ) : (
-                <p className="mt-1 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg dark:text-gray-200 transition-colors duration-200">{user?.name || 'Not set'}</p>
-              )}
-            </div>
-
-            {isEditing && (
-              <div className="flex justify-end space-x-4 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditing(false);
-                    setEditedUser(user);
-                    setError('');
-                  }}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors duration-200"
-                >
-                  Save Changes
-                </button>
+            {error && (
+              <div className="bg-red-100 border border-red-200 text-red-800 px-4 py-3 rounded mt-6 flex items-center">
+                <p>{error}</p>
               </div>
             )}
-          </form>
+
+            {success && (
+              <div className="bg-green-100 border border-green-200 text-green-800 px-4 py-3 rounded mt-6 flex items-center">
+                <CheckCircle className="h-5 w-5 mr-2" />
+                {success}
+              </div>
+            )}
+
+            {/* Profile Tab */}
+            <TabsContent value="profile" className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="md:col-span-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Personal Information</CardTitle>
+                      <CardDescription>View your personal information</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <User className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Username</p>
+                          <p className="font-medium">{user?.username}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Mail className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Email</p>
+                          <p className="font-medium">{user?.email}</p>
+                          </div>
+                      </div>
+                      {user?.name && (
+                        <div className="flex items-center gap-3">
+                          <Briefcase className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Name</p>
+                            <p className="font-medium">{user.name}</p>
+                          </div>
+                        </div>
+                      )}
+                      {user?.location && (
+                        <div className="flex items-center gap-3">
+                          <MapPin className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Location</p>
+                            <p className="font-medium">{user.location}</p>
+                          </div>
+                        </div>
+                      )}
+                      {user?.website && (
+                        <div className="flex items-center gap-3">
+                          <Briefcase className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Website</p>
+                            <p className="font-medium">{user.website}</p>
+                          </div>
+                        </div>
+                      )}
+                      {user?.occupation && (
+                        <div className="flex items-center gap-3">
+                          <GraduationCap className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Occupation</p>
+                            <p className="font-medium">{user.occupation}</p>
+                          </div>
+                        </div>
+                      )}
+                      {user?.bio && (
+                        <div className="mt-4">
+                          <h3 className="font-medium mb-2">Bio</h3>
+                          <p className="text-muted-foreground">{user.bio}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Account Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <Briefcase className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Account Type</p>
+                          <p className="font-medium capitalize">{user?.provider || 'local'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Award className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Role</p>
+                          <p className="font-medium">
+                            {user?.roles.includes('ROLE_ADMIN') ? 'Admin' : 'User'}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Settings Tab */}
+            <TabsContent value="settings" className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="md:col-span-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Edit Profile</CardTitle>
+                      <CardDescription>Update your personal information</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Username</label>
+                            <Input
+                              name="username"
+                              value={editedUser?.username || ''}
+                              onChange={handleInputChange}
+                              disabled={user?.provider === 'google'}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Name</label>
+                            <Input
+                              name="name"
+                              value={editedUser?.name || ''}
+                              onChange={handleInputChange}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Location</label>
+                            <Input
+                              name="location"
+                              value={editedUser?.location || ''}
+                              onChange={handleInputChange}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Occupation</label>
+                            <Input
+                              name="occupation"
+                              value={editedUser?.occupation || ''}
+                              onChange={handleInputChange}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium mb-1">Website</label>
+                            <Input
+                              name="website"
+                              value={editedUser?.website || ''}
+                              onChange={handleInputChange}
+                              disabled={user?.provider === 'google'}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Bio</label>
+                          <Textarea
+                            name="bio"
+                            value={editedUser?.bio || ''}
+                            onChange={handleInputChange}
+                            placeholder="Tell us about yourself"
+                            className="min-h-[120px]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Skills</label>
+                            <Input
+                              name="skills"
+                              value={editedUser?.skills || ''}
+                              onChange={handleInputChange}
+                              placeholder="HTML, CSS, JavaScript, etc."
+                              disabled={user?.provider === 'google'}
+                            />
+                          <p className="text-sm text-muted-foreground mt-1">Separate skills with commas</p>
+                        </div>
+
+                        <div className="flex justify-end space-x-4 pt-4">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              setEditedUser(user);
+                              setError('');
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button type="submit">Save Changes</Button>
+                        </div>
+                      </form>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Separator } from "@/components/ui/separator"
-import { BookOpen, Eye, EyeOff, ArrowLeft, Mail } from "lucide-react"
+import { Eye, EyeOff, Mail } from "lucide-react"
 
 // Login form schema
 const loginFormSchema = z.object({
