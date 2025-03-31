@@ -5,6 +5,10 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { useTheme } from '@/app/providers/ThemeProvider';
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
+import { BookOpen, Search, Menu, X, Sun, Moon } from "lucide-react";
 
 interface User {
   id: string;
@@ -16,12 +20,35 @@ interface User {
   roles?: string[];
 }
 
+const routes = [
+  {
+    name: "Home",
+    path: "/",
+  },
+  {
+    name: "Courses",
+    path: "/courses",
+  },
+  {
+    name: "Categories",
+    path: "/categories",
+  },
+  {
+    name: "Instructors",
+    path: "/mentors", // Matching your existing route
+  },
+  {
+    name: "About",
+    path: "/about",
+  },
+];
+
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
   // Function to update user data
@@ -111,8 +138,8 @@ export default function Navbar() {
             onError={() => setImageError(true)}
           />
         ) : (
-          <div className="h-8 w-8 rounded-full bg-gradient-to-r from-[#4169E1] to-[#2AB7CA] flex items-center justify-center text-white ring-2 ring-white dark:ring-gray-700 transition-all duration-200">
-            {(user?.username || user?.name)?.charAt(0).toUpperCase() || '?'}
+          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary ring-2 ring-white dark:ring-gray-700 transition-all duration-200 font-medium">
+            {(user?.username || user?.name)?.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || '?'}
           </div>
         )}
         <span className="absolute -top-1 -right-1 h-3 w-3 bg-green-400 rounded-full">
@@ -123,126 +150,83 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="bg-white dark:bg-gray-800 shadow-lg fixed w-full top-0 z-50 transition-colors duration-200">
-      <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 justify-between items-center">
-          {/* Logo - Left */}
-          <div className="flex-shrink-0">
-            <Link href="/" className="flex items-center">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-r from-[#4169E1] to-[#2AB7CA] flex items-center justify-center shadow-md">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-              </div>
-              <span className="ml-2 text-xl font-bold bg-gradient-to-r from-[#4169E1] to-[#2AB7CA] bg-clip-text text-transparent">
-                SkillShare
-              </span>
+    <header className="border-b sticky top-0 bg-background z-10">
+      <div className="container flex h-16 items-center justify-between py-4">
+        <div className="flex items-center gap-6">
+          <Link href="/" className="flex items-center gap-2">
+            <BookOpen className="h-6 w-6 text-primary" />
+            <span className="text-xl font-bold">EduLearn</span>
             </Link>
-          </div>
-
-          {/* Navigation Links - Center */}
-          <div className="hidden md:flex flex-1 justify-center">
-            <div className="flex space-x-8">
+          <nav className="hidden md:flex gap-6">
+            {routes.map((route) => (
               <Link
-                href="/"
-                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
-                  pathname === '/'
-                    ? 'text-[#2AB7CA] border-b-2 border-[#2AB7CA] dark:text-[#4fc3d5]'
-                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white hover:border-gray-300'
-                } transition-colors duration-200`}
+                key={route.path}
+                href={route.path}
+                className={`text-sm font-medium transition-colors hover:text-primary ${
+                  pathname === route.path ? "text-primary" : "text-foreground/70"
+                }`}
               >
-                Home
+                {route.name}
               </Link>
-              <Link
-                href="/courses"
-                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
-                  pathname === '/courses'
-                    ? 'text-[#2AB7CA] border-b-2 border-[#2AB7CA] dark:text-[#4fc3d5]'
-                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white hover:border-gray-300'
-                } transition-colors duration-200`}
-              >
-                Courses
-              </Link>
-              <Link
-                href="/about"
-                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
-                  pathname === '/about'
-                    ? 'text-[#2AB7CA] border-b-2 border-[#2AB7CA] dark:text-[#4fc3d5]'
-                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white hover:border-gray-300'
-                } transition-colors duration-200`}
-              >
-                About Us
-              </Link>
-              <Link
-                href="/mentors"
-                className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg ${
-                  pathname === '/mentors'
-                    ? 'text-white bg-[#4169E1] dark:bg-[#5278ed]'
-                    : 'text-gray-500 hover:text-[#4169E1] dark:text-gray-300 dark:hover:text-[#5278ed] hover:bg-[#4169E1]/5 dark:hover:bg-[#5278ed]/10'
-                } transition-all duration-200`}
-              >
-                Mentors
-              </Link>
+            ))}
               <Link
                 href="/community"
-                className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg ${
-                  pathname === '/community'
-                    ? 'text-white bg-[#4169E1] dark:bg-[#5278ed]'
-                    : 'text-gray-500 hover:text-[#4169E1] dark:text-gray-300 dark:hover:text-[#5278ed] hover:bg-[#4169E1]/5 dark:hover:bg-[#5278ed]/10'
-                } transition-all duration-200`}
+              className={`text-sm font-medium transition-colors hover:text-primary ${
+                pathname === "/community" ? "text-primary" : "text-foreground/70"
+              }`}
               >
                 Community
               </Link>
+          </nav>
             </div>
+
+        <div className="flex items-center gap-4">
+          {/* Desktop Search */}
+          <div className="relative hidden md:block">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input type="search" placeholder="Search courses..." className="w-[200px] lg:w-[300px] pl-8" />
           </div>
 
-          {/* User Menu and Theme Toggle - Right */}
-          <div className="flex items-center space-x-4">
+          {/* Mobile Search Toggle */}
+          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSearchOpen(!searchOpen)}>
+            <Search className="h-5 w-5" />
+          </Button>
+
             {/* Theme Toggle */}
-            <button
+          <Button
+            variant="ghost"
+            size="icon"
               onClick={toggleTheme}
-              className="relative p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white focus:outline-none transition-all duration-300 overflow-hidden group"
+            className="relative overflow-hidden"
               aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             >
-              <div className="absolute inset-0 transform transition-transform duration-500 ease-in-out">
-                <div className={`absolute inset-0 ${theme === 'dark' ? 'translate-x-0' : 'translate-x-full'} bg-gradient-to-r from-[#4169E1]/20 to-[#2AB7CA]/20 transition-transform duration-500`}></div>
-              </div>
-              <div className="relative z-10 flex w-5 h-5 transition-all duration-500 ease-in-out">
                 {theme === 'dark' ? (
-                  <svg className="w-5 h-5 transform transition-all duration-500 rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
+              <Sun className="h-5 w-5" />
                 ) : (
-                  <svg className="w-5 h-5 transform transition-all duration-500 rotate-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                  </svg>
+              <Moon className="h-5 w-5" />
                 )}
-              </div>
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#4169E1] to-[#2AB7CA] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></span>
-            </button>
+          </Button>
 
+          {/* Auth Buttons or User Menu */}
             {user ? (
-              <div className="relative ml-3">
-                <div>
-                  <button
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
                     onClick={() => setIsOpen(!isOpen)}
-                    className="flex items-center max-w-xs text-sm bg-gray-800 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white"
-                    aria-expanded={isOpen}
-                    aria-haspopup="true"
-                  >
-                    <span className="sr-only">Open user menu</span>
-                    {user && <UserAvatar user={user} />}
-                  </button>
-                </div>
+                className="rounded-full p-0 h-auto"
+              >
+                <UserAvatar user={user} />
+              </Button>
                 {isOpen && (
-                  <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
-                    <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+                <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-background border z-10">
+                  <div className="px-4 py-2 text-xs text-muted-foreground border-b">
                       Signed in as <span className="font-semibold">{user.name || user.username || user.email}</span>
                     </div>
                     <Link
                       href="/profile"
                       onClick={() => setIsOpen(false)}
-                      className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    className="block px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
                     >
                       Your Profile
                     </Link>
@@ -250,7 +234,7 @@ export default function Navbar() {
                       <Link
                         href="/admin"
                         onClick={() => setIsOpen(false)}
-                        className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      className="block px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
                       >
                         Admin Dashboard
                       </Link>
@@ -260,7 +244,7 @@ export default function Navbar() {
                         setIsOpen(false);
                         handleLogout();
                       }}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    className="block w-full text-left px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
                     >
                       Sign out
                     </button>
@@ -268,99 +252,116 @@ export default function Navbar() {
                 )}
               </div>
             ) : (
-              <Link
-                href="/login"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#4169E1] hover:bg-[#4169E1]/90 dark:bg-[#5278ed] dark:hover:bg-[#5278ed]/90 transition-colors duration-200"
-              >
-                Sign In
-              </Link>
-            )}
-
-            {/* Mobile Menu Button */}
-            <div className="md:hidden flex items-center">
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="inline-flex items-center justify-center p-2 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white transition-colors duration-200"
-                aria-expanded="false"
-              >
-                <span className="sr-only">Open main menu</span>
-                {!isMobileMenuOpen ? (
-                  <svg className="block h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                ) : (
-                  <svg className="block h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                )}
-              </button>
+            <div className="hidden md:flex items-center gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/login">Log in</Link>
+              </Button>
+              <Button size="sm" asChild>
+                <Link href="/register">Sign up</Link>
+              </Button>
             </div>
+          )}
+
+          {/* Mobile Menu */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[300px] sm:w-[400px]">
+              <div className="flex flex-col h-full">
+                <div className="flex items-center justify-between py-4 border-b">
+                  <Link href="/" className="flex items-center gap-2">
+                    <BookOpen className="h-6 w-6 text-primary" />
+                    <span className="text-xl font-bold">EduLearn</span>
+                  </Link>
           </div>
-        </div>
+
+                {/* Mobile Search */}
+                <div className="relative my-4">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input type="search" placeholder="Search courses..." className="w-full pl-8" />
       </div>
 
       {/* Mobile Navigation */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden bg-white dark:bg-gray-800 shadow-inner transition-colors duration-200">
-          <div className="px-2 pt-2 pb-3 space-y-1">
+                <nav className="flex flex-col gap-4 py-4">
+                  {routes.map((route) => (
             <Link
-              href="/"
-              className={`block px-3 py-2 rounded-lg text-base font-medium ${
-                pathname === '/'
-                  ? 'text-white bg-[#4169E1] dark:bg-[#5278ed]'
-                  : 'text-gray-500 dark:text-gray-300 hover:text-[#4169E1] dark:hover:text-[#5278ed] hover:bg-[#4169E1]/5 dark:hover:bg-[#5278ed]/10'
-              } transition-all duration-200`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Home
+                      key={route.path}
+                      href={route.path}
+                      className={`text-base font-medium transition-colors hover:text-primary ${
+                        pathname === route.path ? "text-primary" : "text-foreground/70"
+                      }`}
+                    >
+                      {route.name}
             </Link>
-            <Link
-              href="/courses"
-              className={`block px-3 py-2 rounded-lg text-base font-medium ${
-                pathname === '/courses'
-                  ? 'text-white bg-[#4169E1] dark:bg-[#5278ed]'
-                  : 'text-gray-500 dark:text-gray-300 hover:text-[#4169E1] dark:hover:text-[#5278ed] hover:bg-[#4169E1]/5 dark:hover:bg-[#5278ed]/10'
-              } transition-all duration-200`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Courses
-            </Link>
-            <Link
-              href="/about"
-              className={`block px-3 py-2 rounded-lg text-base font-medium ${
-                pathname === '/about'
-                  ? 'text-white bg-[#4169E1] dark:bg-[#5278ed]'
-                  : 'text-gray-500 dark:text-gray-300 hover:text-[#4169E1] dark:hover:text-[#5278ed] hover:bg-[#4169E1]/5 dark:hover:bg-[#5278ed]/10'
-              } transition-all duration-200`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              About Us
-            </Link>
-            <Link
-              href="/mentors"
-              className={`block px-3 py-2 rounded-lg text-base font-medium ${
-                pathname === '/mentors'
-                  ? 'text-white bg-[#4169E1] dark:bg-[#5278ed]'
-                  : 'text-gray-500 dark:text-gray-300 hover:text-[#4169E1] dark:hover:text-[#5278ed] hover:bg-[#4169E1]/5 dark:hover:bg-[#5278ed]/10'
-              } transition-all duration-200`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Mentors
-            </Link>
+                  ))}
             <Link
               href="/community"
-              className={`block px-3 py-2 rounded-lg text-base font-medium ${
-                pathname === '/community'
-                  ? 'text-white bg-[#4169E1] dark:bg-[#5278ed]'
-                  : 'text-gray-500 dark:text-gray-300 hover:text-[#4169E1] dark:hover:text-[#5278ed] hover:bg-[#4169E1]/5 dark:hover:bg-[#5278ed]/10'
-              } transition-all duration-200`}
-              onClick={() => setIsMobileMenuOpen(false)}
+                    className={`text-base font-medium transition-colors hover:text-primary ${
+                      pathname === "/community" ? "text-primary" : "text-foreground/70"
+                    }`}
             >
               Community
             </Link>
+                </nav>
+
+                <div className="mt-auto flex flex-col gap-2 py-4 border-t">
+                  {user ? (
+                    <>
+                      <div className="flex items-center gap-3 mb-4 p-2 bg-muted rounded-lg">
+                        <UserAvatar user={user} />
+                        <div>
+                          <p className="font-medium">{user.name || user.username}</p>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                        </div>
+                      </div>
+                      <Button variant="outline" asChild className="w-full">
+                        <Link href="/profile">Your Profile</Link>
+                      </Button>
+                      {user?.roles?.includes('ROLE_ADMIN') && (
+                        <Button variant="outline" asChild className="w-full">
+                          <Link href="/admin">Admin Dashboard</Link>
+                        </Button>
+                      )}
+                      <Button 
+                        variant="destructive" 
+                        className="w-full"
+                        onClick={handleLogout}
+                      >
+                        Sign out
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="outline" asChild className="w-full">
+                        <Link href="/login">Log in</Link>
+                      </Button>
+                      <Button asChild className="w-full">
+                        <Link href="/register">Sign up</Link>
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+
+      {/* Mobile Search Expanded (Conditional) */}
+      {searchOpen && (
+        <div className="md:hidden px-4 py-2 border-t">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input type="search" placeholder="Search courses..." className="w-full pl-8" autoFocus />
+            <Button variant="ghost" size="icon" className="absolute right-1 top-1" onClick={() => setSearchOpen(false)}>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       )}
-    </nav>
+    </header>
   );
 }

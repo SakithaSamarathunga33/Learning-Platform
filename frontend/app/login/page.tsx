@@ -1,59 +1,133 @@
-'use client';
+"use client"
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import Link from 'next/link';
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import * as z from "zod"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Separator } from "@/components/ui/separator"
+import { BookOpen, Eye, EyeOff, ArrowLeft, Github, Mail } from "lucide-react"
 
-export default function LoginPage() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+// Login form schema
+const loginFormSchema = z.object({
+  username: z.string().min(1, { message: "Username is required" }),
+  password: z.string().min(1, { message: "Password is required" }),
+  rememberMe: z.boolean().default(false),
+})
+
+// Registration form schema
+const registerFormSchema = z
+  .object({
+    username: z.string().min(2, { message: "Username must be at least 2 characters" }),
+    email: z.string().email({ message: "Please enter a valid email address" }),
+    password: z.string().min(8, { message: "Password must be at least 8 characters" }),
+    confirmPassword: z.string(),
+    terms: z.boolean().refine((val) => val === true, {
+      message: "You must agree to the terms and conditions",
+    }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  })
+
+export default function AuthPage() {
+  const router = useRouter()
+  const [activeTab, setActiveTab] = useState("login")
+  const [showLoginPassword, setShowLoginPassword] = useState(false)
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [pageLoaded, setPageLoaded] = useState(false)
 
   useEffect(() => {
-    // Check if user was redirected from registration
+    // Check if user was redirected from registration or has a query parameter
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('registered') === 'true') {
       setSuccessMessage('Registration successful! Please log in with your credentials.');
+      setActiveTab('login');
+    } else if (urlParams.get('tab') === 'register') {
+      // Switch to register tab if specified in URL
+      setActiveTab('register');
     }
+
+    // Add animation delay for page load
+    setTimeout(() => {
+      setPageLoaded(true);
+    }, 100);
   }, []);
 
+  // Login form
+  const loginForm = useForm<z.infer<typeof loginFormSchema>>({
+    resolver: zodResolver(loginFormSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+      rememberMe: false,
+    },
+  })
+
+  // Register form
+  const registerForm = useForm<z.infer<typeof registerFormSchema>>({
+    resolver: zodResolver(registerFormSchema),
+    defaultValues: {
+      username: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      terms: false,
+    },
+  })
+
+  // Handle Google login
   const handleGoogleLogin = () => {
     window.location.href = 'http://localhost:8080/api/auth/google';
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
+  // Handle login form submission
+  async function onLoginSubmit(values: z.infer<typeof loginFormSchema>) {
+    setIsLoading(true)
+    setError(null)
+    console.log(values)
 
     try {
       const response = await fetch('http://localhost:8080/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
-          username: username,
-          password: password,
+          username: values.username,
+          password: values.password,
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
+        if (!data.token) {
+          throw new Error('No authentication token received');
+        }
+        
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        
         // Dispatch custom event to update navbar
         try {
-          // Create and dispatch a CustomEvent for better browser compatibility
           const event = new CustomEvent('userDataChanged');
           window.dispatchEvent(event);
         } catch (e) {
-          // Fallback for older browsers
           console.error('Error creating custom event:', e);
           const event = document.createEvent('Event');
           event.initEvent('userDataChanged', true, true);
@@ -67,195 +141,455 @@ export default function LoginPage() {
           router.push('/');
         }
       } else {
-        setError(data.message || 'Login failed');
+        setError(data.message || 'Login failed. Please check your credentials.');
       }
     } catch (error) {
-      setError('An error occurred during login');
+      console.error('Login error:', error);
+      setError('An error occurred during login. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }
+
+  // Handle registration form submission
+  async function onRegisterSubmit(values: z.infer<typeof registerFormSchema>) {
+    setIsLoading(true)
+    setError(null)
+    console.log(values)
+
+    try {
+      const response = await fetch('http://localhost:8080/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          username: values.username,
+          email: values.email,
+          password: values.password
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Registration failed');
+      }
+
+      // Switch to login tab after successful registration
+      setSuccessMessage('Registration successful! Please log in with your credentials.');
+      setActiveTab('login');
+      registerForm.reset();
+    } catch (err) {
+      console.error('Registration error:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred during registration. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-      <div className="flex min-h-[calc(100vh-4rem)] mt-16">
-        {/* Left side - Image and branding */}
-        <div className="hidden md:flex md:w-1/2 relative">
-          <div className="absolute inset-0">
-            <Image
-              src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3"
-              alt="Learning Platform"
-              fill
-              style={{ objectFit: 'cover' }}
-              priority
-            />
-            <div className="absolute inset-0 bg-gradient-to-br from-[#4169E1]/90 to-[#2AB7CA]/80 dark:from-[#5278ed]/90 dark:to-[#4fc3d5]/80 transition-colors duration-200" />
+    <div className="min-h-screen flex flex-col relative overflow-hidden">
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background"></div>
+      
+      {/* Animated background elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-5 pointer-events-none">
+        <div className="absolute top-1/4 -left-10 w-72 h-72 bg-primary/10 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
+        <div className="absolute top-2/3 -right-10 w-72 h-72 bg-secondary/10 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000"></div>
+        <div className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-accent/10 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-4000"></div>
           </div>
-          <div className="relative z-10 flex flex-col justify-center p-12 text-white">
-            <h1 className="text-4xl font-bold mb-4">Skill-Sharing & Learning Platform</h1>
-            <p className="text-xl opacity-90 mb-8">Connect, Learn, and Grow Together</p>
-            <div className="space-y-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-white/20 rounded-full">
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z"/>
-                  </svg>
-                </div>
-                <span className="text-lg">Access expert-led courses</span>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-white/20 rounded-full">
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
-                  </svg>
-                </div>
-                <span className="text-lg">Join a community of learners</span>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-white/20 rounded-full">
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"/>
-                  </svg>
-                </div>
-                <span className="text-lg">Share your knowledge</span>
-              </div>
-            </div>
-          </div>
+
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
+        <div className={`w-full max-w-md transition-all duration-1000 ${pageLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold animate-fade-in">Welcome</h1>
+            <p className="text-muted-foreground mt-2 animate-fade-in animation-delay-200">Join our community of learners and instructors</p>
         </div>
 
-        {/* Right side - Login form */}
-        <div className="flex-1 flex items-center justify-center p-8 bg-white dark:bg-gray-800 transition-colors duration-200">
-          <div className="w-full max-w-md">
-            <div className="text-center">
-              <div className="w-20 h-20 mx-auto bg-gradient-to-r from-[#4169E1] to-[#2AB7CA] dark:from-[#5278ed] dark:to-[#4fc3d5] rounded-2xl flex items-center justify-center shadow-lg transition-colors duration-200">
-                <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-              </div>
-              <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-white transition-colors duration-200">
-                Welcome Back
-              </h2>
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 transition-colors duration-200">
-                Don't have an account?{' '}
-                <Link href="/register" className="font-medium text-[#4169E1] hover:text-[#4169E1]/90 dark:text-[#5278ed] dark:hover:text-[#5278ed]/90 transition-colors duration-200">
-                  Register now
-                </Link>
-              </p>
-            </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full animate-fade-in animation-delay-300">
+            <TabsList className="grid w-full grid-cols-2 mb-8">
+              <TabsTrigger value="login" className="transition-all">Sign In</TabsTrigger>
+              <TabsTrigger value="register" className="transition-all">Register</TabsTrigger>
+            </TabsList>
 
+            {/* Login Tab */}
+            <TabsContent value="login" className="animate-fade-in animation-delay-400">
+              <Card className="border-none shadow-lg transition-all hover:shadow-xl">
+                <CardHeader className="space-y-1">
+                  <CardTitle className="text-2xl font-bold text-center">Sign in to your account</CardTitle>
+                  <CardDescription className="text-center">
+                    Enter your credentials to access your account
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
             {error && (
-              <div className="mt-6 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-md transition-colors duration-200">
-                <p className="text-red-700 dark:text-red-400 transition-colors duration-200">{error}</p>
+                    <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm animate-shake">
+                      {error}
               </div>
             )}
-
             {successMessage && (
-              <div className="mt-6 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 p-4 rounded-md transition-colors duration-200">
-                <p className="text-green-700 dark:text-green-400 transition-colors duration-200">{successMessage}</p>
+                    <div className="p-3 rounded-md bg-green-100 text-green-800 text-sm dark:bg-green-900/20 dark:text-green-400 animate-fade-in">
+                      {successMessage}
               </div>
             )}
 
-            <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200">
-                    Username
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      id="username"
+                  <Form {...loginForm}>
+                    <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+                      <FormField
+                        control={loginForm.control}
                       name="username"
-                      type="text"
-                      required
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-[#4169E1] dark:focus:ring-[#5278ed] focus:border-[#4169E1] dark:focus:border-[#5278ed] dark:bg-gray-700 dark:text-white transition-colors duration-200"
-                      placeholder="Enter your username"
-                      disabled={isLoading}
-                    />
+                        render={({ field }) => (
+                          <FormItem className="transition-all duration-300 hover:scale-[1.01]">
+                            <FormLabel>Username</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter your username" {...field} className="h-11 transition-all focus:scale-[1.02]" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={loginForm.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem className="transition-all duration-300 hover:scale-[1.01]">
+                            <div className="flex items-center justify-between">
+                              <FormLabel>Password</FormLabel>
+                              <Button variant="link" className="p-0 h-auto text-xs transition-all hover:text-primary" type="button">
+                                Forgot password?
+                              </Button>
                   </div>
+                            <FormControl>
+                              <div className="relative">
+                                <Input
+                                  type={showLoginPassword ? "text" : "password"}
+                                  placeholder="••••••••"
+                                  {...field}
+                                  className="h-11 transition-all focus:scale-[1.02]"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute right-0 top-0 h-full px-3 transition-all"
+                                  onClick={() => setShowLoginPassword(!showLoginPassword)}
+                                >
+                                  {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
                 </div>
-
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200">
-                    Password
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      id="password"
-                      name="password"
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-[#4169E1] dark:focus:ring-[#5278ed] focus:border-[#4169E1] dark:focus:border-[#5278ed] dark:bg-gray-700 dark:text-white transition-colors duration-200"
-                      placeholder="Enter your password"
-                      disabled={isLoading}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <button
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={loginForm.control}
+                        name="rememberMe"
+                        render={({ field }) => (
+                          <FormItem className="flex items-center space-x-2 space-y-0 transition-all duration-300">
+                            <FormControl>
+                              <Checkbox checked={field.value} onCheckedChange={field.onChange} className="transition-all hover:scale-110" />
+                            </FormControl>
+                            <FormLabel className="text-sm font-normal">Remember me for 30 days</FormLabel>
+                          </FormItem>
+                        )}
+                      />
+                      <Button 
                   type="submit"
-                  className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#4169E1] dark:bg-[#5278ed] hover:bg-[#4169E1]/90 dark:hover:bg-[#5278ed]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#4169E1] dark:focus:ring-[#5278ed] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full h-11 text-base transition-all hover:scale-[1.02] hover:shadow-md duration-300 active:scale-95" 
                   disabled={isLoading}
                 >
                   {isLoading ? (
                     <div className="flex items-center">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                            <svg
+                              className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              ></path>
+                            </svg>
                       Signing in...
                     </div>
                   ) : (
-                    'Sign in'
+                          "Sign in"
                   )}
-                </button>
-              </div>
+                      </Button>
+                    </form>
+                  </Form>
 
-              <div className="mt-6">
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300 dark:border-gray-600 transition-colors duration-200"></div>
+                      <Separator className="w-full" />
                   </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors duration-200">Or continue with</span>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
                   </div>
                 </div>
 
-                <div className="mt-6">
-                  <button
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button 
+                      variant="outline" 
                     type="button"
-                    onClick={handleGoogleLogin}
-                    className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#4169E1] dark:focus:ring-[#5278ed] transition-all duration-200"
+                      className="h-11 transition-all duration-300 hover:scale-[1.03] hover:shadow-sm hover:bg-muted/50 active:scale-95" 
                     disabled={isLoading}
                   >
-                    <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                      <path
-                        fill="#4285F4"
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                      <Github className="mr-2 h-4 w-4" />
+                      GitHub
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      type="button" 
+                      className="h-11 transition-all duration-300 hover:scale-[1.03] hover:shadow-sm hover:bg-muted/50 active:scale-95" 
+                      disabled={isLoading} 
+                      onClick={handleGoogleLogin}
+                    >
+                      <Mail className="mr-2 h-4 w-4" />
+                      Google
+                    </Button>
+                  </div>
+                </CardContent>
+                <CardFooter className="flex flex-col items-center">
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Don&apos;t have an account?{" "}
+                    <Button variant="link" className="p-0 h-auto transition-all hover:scale-105" onClick={() => setActiveTab("register")}>
+                      Register
+                    </Button>
+                  </p>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+
+            {/* Register Tab */}
+            <TabsContent value="register" className="animate-fade-in animation-delay-400">
+              <Card className="border-none shadow-lg transition-all hover:shadow-xl">
+                <CardHeader className="space-y-1">
+                  <CardTitle className="text-2xl font-bold text-center">Create an account</CardTitle>
+                  <CardDescription className="text-center">
+                    Enter your information to create your account
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {error && <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm animate-shake">{error}</div>}
+
+                  <Form {...registerForm}>
+                    <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
+                      <FormField
+                        control={registerForm.control}
+                        name="username"
+                        render={({ field }) => (
+                          <FormItem className="transition-all duration-300 hover:scale-[1.01]">
+                            <FormLabel>Username</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Choose a username" {...field} className="h-11 transition-all focus:scale-[1.02]" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
-                      <path
-                        fill="#34A853"
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                      <FormField
+                        control={registerForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem className="transition-all duration-300 hover:scale-[1.01]">
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input placeholder="you@example.com" {...field} className="h-11 transition-all focus:scale-[1.02]" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
-                      <path
-                        fill="#FBBC05"
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                      <FormField
+                        control={registerForm.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem className="transition-all duration-300 hover:scale-[1.01]">
+                            <FormLabel>Password</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Input
+                                  type={showRegisterPassword ? "text" : "password"}
+                                  placeholder="••••••••"
+                                  {...field}
+                                  className="h-11 transition-all focus:scale-[1.02]"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute right-0 top-0 h-full px-3 transition-all"
+                                  onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                                >
+                                  {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </FormControl>
+                            <FormDescription className="text-xs">
+                              Password must be at least 8 characters long
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
-                      <path
-                        fill="#EA4335"
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                      <FormField
+                        control={registerForm.control}
+                        name="confirmPassword"
+                        render={({ field }) => (
+                          <FormItem className="transition-all duration-300 hover:scale-[1.01]">
+                            <FormLabel>Confirm Password</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Input
+                                  type={showConfirmPassword ? "text" : "password"}
+                                  placeholder="••••••••"
+                                  {...field}
+                                  className="h-11 transition-all focus:scale-[1.02]"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute right-0 top-0 h-full px-3 transition-all"
+                                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                >
+                                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
+                      <FormField
+                        control={registerForm.control}
+                        name="terms"
+                        render={({ field }) => (
+                          <FormItem className="flex items-start space-x-2 space-y-0 transition-all duration-300">
+                            <FormControl>
+                              <Checkbox checked={field.value} onCheckedChange={field.onChange} className="transition-all hover:scale-110" />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="text-sm font-normal">
+                                I agree to the{" "}
+                                <Button variant="link" className="p-0 h-auto text-sm transition-all hover:text-primary">
+                                  terms of service
+                                </Button>{" "}
+                                and{" "}
+                                <Button variant="link" className="p-0 h-auto text-sm transition-all hover:text-primary">
+                                  privacy policy
+                                </Button>
+                              </FormLabel>
+                              <FormMessage />
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                      <Button 
+                        type="submit" 
+                        className="w-full h-11 text-base transition-all hover:scale-[1.02] hover:shadow-md duration-300 active:scale-95" 
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <div className="flex items-center">
+                            <svg
+                              className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                      <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              ></path>
                     </svg>
-                    Sign in with Google
-                  </button>
+                            Creating account...
+                          </div>
+                        ) : (
+                          "Create Account"
+                        )}
+                      </Button>
+                    </form>
+                  </Form>
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <Separator className="w-full" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
                 </div>
               </div>
-            </form>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button 
+                      variant="outline" 
+                      type="button" 
+                      className="h-11 transition-all duration-300 hover:scale-[1.03] hover:shadow-sm hover:bg-muted/50 active:scale-95" 
+                      disabled={isLoading}
+                    >
+                      <Github className="mr-2 h-4 w-4" />
+                      GitHub
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      type="button" 
+                      className="h-11 transition-all duration-300 hover:scale-[1.03] hover:shadow-sm hover:bg-muted/50 active:scale-95" 
+                      disabled={isLoading} 
+                      onClick={handleGoogleLogin}
+                    >
+                      <Mail className="mr-2 h-4 w-4" />
+                      Google
+                    </Button>
+                  </div>
+                </CardContent>
+                <CardFooter className="flex flex-col items-center">
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Already have an account?{" "}
+                    <Button variant="link" className="p-0 h-auto transition-all hover:scale-105" onClick={() => setActiveTab("login")}>
+                      Sign in
+                    </Button>
+                  </p>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+          </Tabs>
+
+          <div className="mt-8 text-center text-sm text-muted-foreground animate-fade-in animation-delay-500">
+            <p>
+              By signing in or creating an account, you agree to our{" "}
+              <Link href="#" className="text-primary hover:underline transition-colors">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="#" className="text-primary hover:underline transition-colors">
+                Privacy Policy
+              </Link>
+            </p>
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }

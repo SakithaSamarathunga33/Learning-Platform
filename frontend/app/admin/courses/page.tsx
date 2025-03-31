@@ -1,7 +1,61 @@
-'use client';
+"use client"
 
-import { useState, useEffect } from 'react';
-import { getAuthenticatedFetch } from '@/utils/auth';
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import { Textarea } from "@/components/ui/textarea"
+import { toast } from "sonner"
+import { jsPDF } from "jspdf"
+import "jspdf-autotable"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import {
+  Search,
+  MoreHorizontal,
+  Download,
+  Filter,
+  ArrowUpDown,
+  Edit,
+  Trash2,
+  Plus,
+  BookOpen,
+  Loader2,
+  Pencil,
+} from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert"
+import { getAuthenticatedFetch } from '@/utils/auth'
 
 interface Course {
   id: string;
@@ -16,6 +70,9 @@ interface Course {
     id: string;
     username: string;
   };
+  students?: number;
+  rating?: number;
+  createdAt?: string;
 }
 
 interface User {
@@ -27,26 +84,56 @@ interface User {
 }
 
 export default function CoursesPage() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-  const [newCourse, setNewCourse] = useState<Partial<Course>>({
+  const [selectedCourses, setSelectedCourses] = useState<string[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [categoryFilter, setCategoryFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [mounted, setMounted] = useState(false)
+  const [courses, setCourses] = useState<Course[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string>("")
+  const [stats, setStats] = useState({
+    totalCourses: 0,
+    publishedCourses: 0,
+    newCourses: 0,
+    draftCourses: 0
+  })
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null)
+  const [editForm, setEditForm] = useState({
     title: '',
     description: '',
-    thumbnailUrl: '',
+    price: 0,
+    category: '',
+    isPublished: false
+  })
+  const [alert, setAlert] = useState<{
+    type: 'success' | 'error' | 'info';
+    title: string;
+    description: string;
+  } | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const authenticatedFetch = getAuthenticatedFetch();
+
+  // Add pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const coursesPerPage = 10;
+
+  // Add new course dialog state
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [addForm, setAddForm] = useState({
+    title: '',
+    description: '',
     price: 0,
     category: '',
     isPublished: false,
-    instructor: {
-      id: '',
-      username: ''
-    }
-  });
-  const authenticatedFetch = getAuthenticatedFetch();
+    thumbnailUrl: ''
+  })
+
+  // Simulate mounted state for animations
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     // Get user data from localStorage
@@ -71,11 +158,37 @@ export default function CoursesPage() {
       }
 
       const data = await response.json();
-      setCourses(data);
+      
+      // Transform the data to include additional fields
+      const transformedCourses = data.map((course: Course) => ({
+        ...course,
+        instructor: course.instructor || { id: '', username: 'Unknown Instructor' },
+        students: Math.floor(Math.random() * 1000), // Placeholder
+        rating: (Math.random() * 2 + 3).toFixed(1), // Placeholder
+        createdAt: new Date().toLocaleDateString() // Placeholder
+      }));
+      
+      setCourses(transformedCourses);
+      
+      // Calculate stats
+      const totalCourses = transformedCourses.length;
+      const publishedCourses = transformedCourses.filter(c => c.isPublished).length;
+      const draftCourses = transformedCourses.filter(c => !c.isPublished).length;
+      
+      // This is a placeholder - you should get real data about new courses from your API
+      const newCourses = Math.floor(totalCourses * 0.1); // Just assuming 10% are new courses for now
+      
+      setStats({
+        totalCourses,
+        publishedCourses,
+        newCourses,
+        draftCourses
+      });
+      
+      setLoading(false);
     } catch (err) {
       console.error('Error fetching courses:', err);
       setError(err instanceof Error ? err.message : 'Error connecting to server');
-    } finally {
       setLoading(false);
     }
   };
@@ -91,22 +204,49 @@ export default function CoursesPage() {
 
       if (response.ok) {
         setCourses(courses.filter(course => course.id !== courseId));
+        setSelectedCourses(selectedCourses.filter(id => id !== courseId));
+        
+        // Update stats
+        const courseToDelete = courses.find(c => c.id === courseId);
+        if (courseToDelete) {
+          const newStats = {...stats};
+          newStats.totalCourses--;
+          if (courseToDelete.isPublished) {
+            newStats.publishedCourses--;
+          } else {
+            newStats.draftCourses--;
+          }
+          setStats(newStats);
+        }
+
+        // Show success alert
+        setAlert({
+          type: 'success',
+          title: 'Course deleted',
+          description: 'The course has been successfully deleted.'
+        });
       } else {
-        setError('Failed to delete course');
+        throw new Error('Failed to delete course');
       }
     } catch (err) {
-      setError('Error connecting to server');
+      setError(err instanceof Error ? err.message : 'Error connecting to server');
     }
   };
 
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingCourse) return;
+  const handleEdit = (course: Course) => {
+    setEditingCourse(course);
+    setEditForm({
+      title: course.title,
+      description: course.description,
+      price: course.price,
+      category: course.category,
+      isPublished: course.isPublished
+    });
+    setIsEditDialogOpen(true);
+  };
 
-    const courseToUpdate = {
-      ...editingCourse,
-      published: editingCourse.isPublished
-    };
+  const handleEditSubmit = async () => {
+    if (!editingCourse) return;
 
     try {
       const response = await authenticatedFetch(`http://localhost:8080/api/courses/${editingCourse.id}`, {
@@ -114,8 +254,13 @@ export default function CoursesPage() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(courseToUpdate)
+        body: JSON.stringify({
+          ...editingCourse,
+          ...editForm,
+          published: editForm.isPublished
+        })
       });
+
       if (!response) return; // User was redirected to login
 
       if (!response.ok) {
@@ -126,359 +271,515 @@ export default function CoursesPage() {
       setCourses(courses.map(course => 
         course.id === editingCourse.id ? updatedCourse : course
       ));
+      setIsEditDialogOpen(false);
       setEditingCourse(null);
+
+      // Show success alert
+      setAlert({
+        type: 'success',
+        title: 'Course updated',
+        description: 'The course has been successfully updated.'
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update course');
     }
   };
 
-  const handleCreateSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const courseData = {
-        title: newCourse.title,
-        description: newCourse.description,
-        thumbnailUrl: newCourse.thumbnailUrl || '',
-        price: newCourse.price || 0,
-        category: newCourse.category || 'General',
-        isPublished: newCourse.isPublished || false,
-        published: newCourse.isPublished || false
-      };
+  const handleSelectAll = () => {
+    if (selectedCourses.length === courses.length) {
+      setSelectedCourses([]);
+    } else {
+      setSelectedCourses(courses.map(course => course.id));
+    }
+  };
 
-      console.log('Creating course with publish status:', courseData.isPublished);
-      
+  const handleSelectCourse = (courseId: string) => {
+    setSelectedCourses(prev => 
+      prev.includes(courseId) 
+        ? prev.filter(id => id !== courseId)
+        : [...prev, courseId]
+    );
+  };
+
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+  };
+
+  const filteredCourses = courses.filter(course => {
+    const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         course.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = categoryFilter === 'all' || course.category === categoryFilter;
+    const matchesStatus = statusFilter === 'all' || 
+                         (statusFilter === 'published' && course.isPublished) ||
+                         (statusFilter === 'draft' && !course.isPublished);
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
+
+  const totalPages = Math.ceil(filteredCourses.length / coursesPerPage);
+  const startIndex = (currentPage - 1) * coursesPerPage;
+  const endIndex = startIndex + coursesPerPage;
+  const currentCourses = filteredCourses.slice(startIndex, endIndex);
+
+  const handleAddCourse = async () => {
+    try {
       const response = await authenticatedFetch('http://localhost:8080/api/courses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(courseData)
+        body: JSON.stringify({
+          ...addForm,
+          published: addForm.isPublished
+        })
       });
 
-      if (!response) return; // User was redirected to login
+      if (!response) return;
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to create course');
+        throw new Error('Failed to create course');
       }
 
-      const createdCourse = await response.json();
-      console.log('Created course:', createdCourse);
-      setCourses([...courses, createdCourse]);
-      setIsCreating(false);
-      setNewCourse({
+      const newCourse = await response.json();
+      setCourses([...courses, newCourse]);
+      setIsAddDialogOpen(false);
+      setAddForm({
         title: '',
         description: '',
-        thumbnailUrl: '',
         price: 0,
         category: '',
-        isPublished: false
+        isPublished: false,
+        thumbnailUrl: ''
       });
-    } catch (error) {
-      console.error('Error creating course:', error);
-      setError(error instanceof Error ? error.message : 'Failed to create course');
+
+      toast.success('Course created successfully');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create course');
     }
   };
 
-  const handleCreateCourse = () => {
-    setNewCourse({
-      title: '',
-      description: '',
-      thumbnailUrl: '',
-      price: 0,
-      category: '',
-      isPublished: false,
-      instructor: {
-        id: '',
-        username: ''
-      }
-    });
-    setIsCreating(true);
-  };
-
-  const handleEditCourse = (course: Course) => {
-    const isPublished = course.isPublished === true || course.published === true;
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
     
-    setEditingCourse({
-      ...course,
-      thumbnailUrl: course.thumbnailUrl || '',
-      category: course.category || '',
-      isPublished: isPublished,
-      instructor: {
-        id: course.instructor?.id || '',
-        username: course.instructor?.username || ''
-      }
-    });
-  };
+    // Add title
+    doc.setFontSize(20);
+    doc.text('Courses Report', 14, 15);
+    doc.setFontSize(10);
 
-  const filteredCourses = courses.filter(course =>
-    course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    course.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    // Prepare data for the table
+    const tableData = courses.map(course => [
+      course.title,
+      course.category,
+      course.instructor?.username || 'Unknown Instructor',
+      course.isPublished ? 'Published' : 'Draft',
+      `$${course.price}`,
+      course.createdAt || new Date().toLocaleDateString()
+    ]);
+
+    // Add table
+    doc.autoTable({
+      head: [['Title', 'Category', 'Instructor', 'Status', 'Price', 'Created']],
+      body: tableData,
+      startY: 25,
+      theme: 'grid',
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [41, 128, 185] }
+    });
+
+    // Save the PDF
+    doc.save('courses-report.pdf');
+  };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2AB7CA]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <div className="bg-gradient-to-r from-[#2AB7CA] to-[#4169E1] rounded-2xl shadow-xl p-8 mb-8 text-white">
-        <h1 className="text-3xl font-bold">Courses Management</h1>
-        <p className="mt-2 opacity-90">Manage all courses on your learning platform</p>
+    <div className="space-y-6">
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="bg-primary/5 border-primary/20">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary/10 rounded-full">
+                <BookOpen className="h-6 w-6 text-primary" />
+      </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Courses</p>
+                <p className="text-2xl font-bold">{stats.totalCourses}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-green-500/5 border-green-500/20">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-green-500/10 rounded-full">
+                <BookOpen className="h-6 w-6 text-green-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Published</p>
+                <p className="text-2xl font-bold">{stats.publishedCourses}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-blue-500/5 border-blue-500/20">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-500/10 rounded-full">
+                <BookOpen className="h-6 w-6 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">New Courses</p>
+                <p className="text-2xl font-bold">{stats.newCourses}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-yellow-500/5 border-yellow-500/20">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-yellow-500/10 rounded-full">
+                <BookOpen className="h-6 w-6 text-yellow-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Draft</p>
+                <p className="text-2xl font-bold">{stats.draftCourses}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6">
-          {error}
+      {/* Main Content */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search courses..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 w-[300px]"
+                />
+              </div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="programming">Programming</SelectItem>
+                  <SelectItem value="design">Design</SelectItem>
+                  <SelectItem value="business">Business</SelectItem>
+                  <SelectItem value="marketing">Marketing</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="gap-2" onClick={handleExportPDF}>
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+              <Button size="sm" className="gap-2" onClick={() => setIsAddDialogOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Add Course
+              </Button>
+            </div>
+          </div>
+
+          {/* Course Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {currentCourses.map((course) => (
+              <Card key={course.id} className="group relative overflow-hidden">
+                <div className="relative h-48 w-full">
+                  {course.thumbnailUrl ? (
+                    <img
+                      src={course.thumbnailUrl}
+                      alt={course.title}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-muted flex items-center justify-center">
+                      <BookOpen className="h-12 w-12 text-muted-foreground" />
         </div>
       )}
-
-      <div className="mb-6">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Search courses..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-3 pl-10 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2AB7CA]"
-          />
-          <svg className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-lg p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-800">Course List</h2>
-          <button 
-            onClick={handleCreateCourse}
-            className="px-4 py-2 bg-[#2AB7CA] text-white rounded-lg flex items-center hover:bg-[#2AB7CA]/90 transition-colors"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Add Course
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCourses.length > 0 ? (
-            filteredCourses.map((course) => (
-              <div key={course.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow">
-                {course.thumbnailUrl && (
-                  <img
-                    src={course.thumbnailUrl}
-                    alt={course.title}
-                    className="w-full h-48 object-cover"
-                  />
-                )}
-                <div className="p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-lg font-semibold text-gray-800">{course.title}</h3>
-                    <span className={`px-2 py-1 text-xs rounded-full ${course.isPublished ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                      {course.isPublished ? 'Published' : 'Draft'}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">{course.description}</p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#2AB7CA] font-semibold">${course.price}</span>
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => handleEditCourse(course)}
-                        className="p-2 rounded-lg text-blue-600 hover:bg-blue-50"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(course.id)}
-                        className="p-2 rounded-lg text-red-600 hover:bg-red-50"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                  <div className="absolute top-2 right-2">
+                <input
+                      type="checkbox"
+                      checked={selectedCourses.includes(course.id)}
+                      onChange={() => handleSelectCourse(course.id)}
+                      className="rounded border-gray-300 bg-white/90"
+                />
+              </div>
+                </div>
+                <CardContent className="p-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold line-clamp-1">{course.title}</h3>
+                      <span className="font-medium">${course.price}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{course.category}</Badge>
+                      <Badge variant={course.isPublished ? "success" : "secondary"}>
+                        {course.isPublished ? "Published" : "Draft"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>{course.instructor?.username || 'Unknown Instructor'}</span>
+                      <span>•</span>
+                      <span>{course.students} students</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-yellow-500">★</span>
+                      <span className="text-sm">{course.rating}</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-2">
+                      <span className="text-sm text-muted-foreground">{course.createdAt}</span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(course)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() => handleDelete(course.id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
-                </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-6">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        onClick={() => handlePageChange(page)}
+                        isActive={currentPage === page}
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
               </div>
-            ))
-          ) : (
-            <div className="col-span-full text-center py-12 text-gray-500">
-              No courses found. Try a different search or add a new course.
-            </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* Edit Course Modal */}
-      {editingCourse && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full">
-            <h2 className="text-2xl font-bold mb-4">Edit Course</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
-                <input
-                  type="text"
-                  value={editingCourse.title || ''}
-                  onChange={e => setEditingCourse({...editingCourse, title: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-md"
+      {/* Add Course Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Add New Course</DialogTitle>
+            <DialogDescription>
+              Create a new course by filling out the form below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                value={addForm.title}
+                onChange={(e) => setAddForm({ ...addForm, title: e.target.value })}
+                placeholder="Enter course title"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                <textarea
-                  value={editingCourse.description || ''}
-                  onChange={e => setEditingCourse({...editingCourse, description: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-md"
-                  rows={4}
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={addForm.description}
+                onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
+                placeholder="Enter course description"
+                className="min-h-[100px]"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Thumbnail URL</label>
-                <input
-                  type="text"
-                  value={editingCourse.thumbnailUrl || ''}
-                  onChange={e => setEditingCourse({...editingCourse, thumbnailUrl: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-md"
+            <div className="grid gap-2">
+              <Label htmlFor="thumbnailUrl">Thumbnail URL</Label>
+              <Input
+                id="thumbnailUrl"
+                value={addForm.thumbnailUrl}
+                onChange={(e) => setAddForm({ ...addForm, thumbnailUrl: e.target.value })}
+                placeholder="Enter thumbnail URL"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Price</label>
-                <input
-                  type="number"
-                  value={editingCourse.price || 0}
-                  onChange={e => setEditingCourse({...editingCourse, price: Number(e.target.value)})}
-                  className="w-full px-3 py-2 border rounded-md"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                <input
-                  type="text"
-                  value={editingCourse.category || ''}
-                  onChange={e => setEditingCourse({...editingCourse, category: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-md"
-                />
-              </div>
-              <div className="flex items-center">
-                <input
-                  id="isPublished"
-                  type="checkbox"
-                  checked={editingCourse.isPublished || false}
-                  onChange={e => setEditingCourse({...editingCourse, isPublished: e.target.checked})}
-                  className="h-4 w-4 text-[#2AB7CA] focus:ring-[#2AB7CA] border-gray-300 rounded"
-                />
-                <label htmlFor="isPublished" className="ml-2 block text-sm text-gray-900">
-                  Published
-                </label>
-              </div>
+            <div className="grid gap-2">
+              <Label htmlFor="price">Price</Label>
+              <Input
+                id="price"
+                type="number"
+                value={addForm.price}
+                onChange={(e) => setAddForm({ ...addForm, price: Number(e.target.value) })}
+                placeholder="Enter course price"
+              />
             </div>
-            <div className="mt-6 flex justify-end space-x-3">
-              <button
-                onClick={() => setEditingCourse(null)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+            <div className="grid gap-2">
+              <Label htmlFor="category">Category</Label>
+              <Select
+                value={addForm.category}
+                onValueChange={(value) => setAddForm({ ...addForm, category: value })}
               >
-                Cancel
-              </button>
-              <button
-                onClick={handleEditSubmit}
-                className="px-4 py-2 text-sm font-medium text-white bg-[#2AB7CA] rounded-md hover:bg-[#2395A5]"
-              >
-                Save Changes
-              </button>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="programming">Programming</SelectItem>
+                  <SelectItem value="design">Design</SelectItem>
+                  <SelectItem value="business">Business</SelectItem>
+                  <SelectItem value="marketing">Marketing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="isPublished"
+                checked={addForm.isPublished}
+                onChange={(e) => setAddForm({ ...addForm, isPublished: e.target.checked })}
+                className="rounded border-gray-300"
+              />
+              <Label htmlFor="isPublished">Published</Label>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Create Course Modal */}
-      {isCreating && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full">
-            <h2 className="text-2xl font-bold mb-4">Create New Course</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
-                <input
-                  type="text"
-                  value={newCourse.title || ''}
-                  onChange={e => setNewCourse({...newCourse, title: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-md"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                <textarea
-                  value={newCourse.description || ''}
-                  onChange={e => setNewCourse({...newCourse, description: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-md"
-                  rows={4}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Thumbnail URL</label>
-                <input
-                  type="text"
-                  value={newCourse.thumbnailUrl || ''}
-                  onChange={e => setNewCourse({...newCourse, thumbnailUrl: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-md"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Price</label>
-                <input
-                  type="number"
-                  value={newCourse.price || 0}
-                  onChange={e => setNewCourse({...newCourse, price: Number(e.target.value)})}
-                  className="w-full px-3 py-2 border rounded-md"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                <input
-                  type="text"
-                  value={newCourse.category || ''}
-                  onChange={e => setNewCourse({...newCourse, category: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-md"
-                />
-              </div>
-              <div className="flex items-center">
-                <input
-                  id="newIsPublished"
-                  type="checkbox"
-                  checked={newCourse.isPublished || false}
-                  onChange={e => setNewCourse({...newCourse, isPublished: e.target.checked})}
-                  className="h-4 w-4 text-[#2AB7CA] focus:ring-[#2AB7CA] border-gray-300 rounded"
-                />
-                <label htmlFor="newIsPublished" className="ml-2 block text-sm text-gray-900">
-                  Published
-                </label>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end space-x-3">
-              <button
-                onClick={() => setIsCreating(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-              >
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                 Cancel
-              </button>
-              <button
-                onClick={handleCreateSubmit}
-                className="px-4 py-2 text-sm font-medium text-white bg-[#2AB7CA] rounded-md hover:bg-[#2395A5]"
+            </Button>
+            <Button onClick={handleAddCourse}>Create Course</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Course Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Course</DialogTitle>
+            <DialogDescription>
+              Make changes to the course details below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-title">Title</Label>
+              <Input
+                id="edit-title"
+                value={editForm.title}
+                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                placeholder="Enter course title"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={editForm.description}
+                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                placeholder="Enter course description"
+                className="min-h-[100px]"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-price">Price</Label>
+              <Input
+                id="edit-price"
+                type="number"
+                value={editForm.price}
+                onChange={(e) => setEditForm({ ...editForm, price: Number(e.target.value) })}
+                placeholder="Enter course price"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-category">Category</Label>
+              <Select
+                value={editForm.category}
+                onValueChange={(value) => setEditForm({ ...editForm, category: value })}
               >
-                Create Course
-              </button>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="programming">Programming</SelectItem>
+                  <SelectItem value="design">Design</SelectItem>
+                  <SelectItem value="business">Business</SelectItem>
+                  <SelectItem value="marketing">Marketing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="edit-isPublished"
+                checked={editForm.isPublished}
+                onChange={(e) => setEditForm({ ...editForm, isPublished: e.target.checked })}
+                className="rounded border-gray-300"
+              />
+              <Label htmlFor="edit-isPublished">Published</Label>
             </div>
           </div>
-        </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditSubmit}>Save changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Alert */}
+      {alert && (
+        <Alert variant={alert.type === 'success' ? 'default' : 'destructive'}>
+          <AlertTitle>{alert.title}</AlertTitle>
+          <AlertDescription>{alert.description}</AlertDescription>
+        </Alert>
       )}
     </div>
   );

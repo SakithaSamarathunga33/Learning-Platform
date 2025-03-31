@@ -12,6 +12,9 @@ import java.security.Key;
 import java.util.Date;
 import jakarta.annotation.PostConstruct;
 import io.jsonwebtoken.SignatureAlgorithm;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.Base64;
 
 @Component
 public class JwtUtils {
@@ -28,8 +31,10 @@ public class JwtUtils {
     @PostConstruct
     public void init() {
         try {
-            // Generate a secure key using the secret as a seed
-            this.key = Keys.secretKeyFor(SignatureAlgorithm.HS512);
+            // Create a secure key using SHA-256 hash of the secret
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(jwtSecret.getBytes(StandardCharsets.UTF_8));
+            this.key = Keys.hmacShaKeyFor(hash);
         } catch (Exception e) {
             logger.error("Error initializing JWT key: {}", e.getMessage());
             throw new RuntimeException("Failed to initialize JWT key", e);
@@ -41,9 +46,9 @@ public class JwtUtils {
         return generateJwtToken(userPrincipal.getUsername());
     }
 
-    public String generateJwtToken(String email) {
+    public String generateJwtToken(String username) {
         return Jwts.builder()
-                .setSubject(email)
+                .setSubject(username)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(key)
