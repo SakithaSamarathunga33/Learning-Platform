@@ -6,6 +6,7 @@ import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { ThemeProvider } from '@/app/providers/ThemeProvider';
 import { usePathname } from 'next/navigation';
+import { Toaster } from '@/components/ui/toaster';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -24,6 +25,7 @@ export default function RootLayout({
           {!isAdminRoute && <Navbar />}
           <main className="flex-grow">{children}</main>
           {!isAdminRoute && <Footer />}
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

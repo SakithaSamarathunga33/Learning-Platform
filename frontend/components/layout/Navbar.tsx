@@ -30,6 +30,10 @@ const routes = [
     path: "/courses",
   },
   {
+    name: "Feed",
+    path: "/feed",
+  },
+  {
     name: "Categories",
     path: "/categories",
   },
