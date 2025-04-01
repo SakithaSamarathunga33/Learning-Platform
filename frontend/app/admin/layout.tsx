@@ -74,7 +74,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     },
     {
       title: "Posts",
-      href: "/admin/posts",
+      href: "/admin/achievements",
       icon: <FileText className="h-5 w-5" />,
     },
     {

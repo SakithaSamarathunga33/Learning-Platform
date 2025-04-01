@@ -41,6 +41,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/courses/published").permitAll()
                 .requestMatchers("/api/courses/{id}").permitAll()
                 .requestMatchers("/api/courses").permitAll()
+                .requestMatchers("/api/achievements").permitAll()
+                .requestMatchers("/api/achievements/{id}").permitAll()
                 .requestMatchers("/api/users/**").authenticated()
                 .anyRequest().authenticated()
             )

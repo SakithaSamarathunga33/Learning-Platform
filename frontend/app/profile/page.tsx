@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'; // Added useRef
 import { useRouter } from 'next/navigation';
 import ImageUpload, { ImageUploadHandle } from '@/components/ImageUpload'; // Fixed import and added ImageUploadHandle
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Fixed import
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // Fixed import
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'; // Fixed import
 import { Button } from '@/components/ui/button'; // Fixed import
 import { Input } from '@/components/ui/input'; // Fixed import
 import { Textarea } from '@/components/ui/textarea'; // Fixed import
@@ -18,8 +18,26 @@ import {
   Mail,
   Award,
   CheckCircle,
-  Pencil
+  Pencil,
+  Trash2,
+  FileEdit,
+  Plus,
+  Image,
+  ImagePlus,
+  X
 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
+import AchievementUpload from '@/components/AchievementUpload';
 
 interface User {
   id: string;
@@ -36,6 +54,24 @@ interface User {
   skills?: string;
 }
 
+interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  imagePublicId: string;
+  createdAt: string;
+  likes: number;
+  hasLiked?: boolean;
+  user: {
+    id: string;
+    username: string;
+    firstName: string;
+    lastName: string;
+    profilePicture?: string;
+  };
+}
+
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,7 +80,18 @@ export default function ProfilePage() {
   const [editedUser, setEditedUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState('profile');
   const router = useRouter();
-  const imageUploadRef = useRef<ImageUploadHandle>(null); // Added ref for ImageUpload
+  const imageUploadRef = useRef<ImageUploadHandle>(null);
+  
+  // My Posts State
+  const [userPosts, setUserPosts] = useState<Achievement[]>([]);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(false);
+  const [postsError, setPostsError] = useState('');
+  const [selectedPost, setSelectedPost] = useState<Achievement | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [postTitle, setPostTitle] = useState('');
+  const [postDescription, setPostDescription] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -255,6 +302,142 @@ export default function ProfilePage() {
     }
   };
 
+  // Add this function to fetch user's posts
+  const fetchUserPosts = async () => {
+    if (!user) return;
+
+    try {
+      setIsLoadingPosts(true);
+      setPostsError('');
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+      
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${apiUrl}/api/achievements/user/${user.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        cache: 'no-store'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch your posts (Status: ${response.status})`);
+      }
+      
+      const data = await response.json();
+      setUserPosts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error fetching user posts:', err);
+      setPostsError(err instanceof Error ? err.message : 'Failed to load your posts');
+    } finally {
+      setIsLoadingPosts(false);
+    }
+  };
+
+  // Add handlers for post operations
+  const openEditDialog = (post: Achievement) => {
+    setSelectedPost(post);
+    setPostTitle(post.title);
+    setPostDescription(post.description);
+    setIsEditDialogOpen(true);
+  };
+
+  const openDeleteDialog = (post: Achievement) => {
+    setSelectedPost(post);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleUpdatePost = async () => {
+    if (!selectedPost) return;
+    
+    try {
+      setIsSubmitting(true);
+      
+      if (!postTitle.trim()) {
+        throw new Error('Title is required');
+      }
+
+      if (!postDescription.trim()) {
+        throw new Error('Description is required');
+      }
+
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+      
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${apiUrl}/api/achievements/${selectedPost.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: postTitle,
+          description: postDescription
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update post (Status: ${response.status})`);
+      }
+      
+      toast.success('Post updated successfully');
+      setIsEditDialogOpen(false);
+      fetchUserPosts(); // Refresh the posts
+    } catch (err) {
+      console.error('Error updating post:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update post');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeletePost = async () => {
+    if (!selectedPost) return;
+    
+    try {
+      setIsSubmitting(true);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+      
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${apiUrl}/api/achievements/${selectedPost.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to delete post (Status: ${response.status})`);
+      }
+      
+      toast.success('Post deleted successfully');
+      setIsDeleteDialogOpen(false);
+      fetchUserPosts(); // Refresh the posts
+    } catch (err) {
+      console.error('Error deleting post:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to delete post');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Load posts when the tab is selected
+  useEffect(() => {
+    if (activeTab === 'posts' && user) {
+      fetchUserPosts();
+    }
+  }, [activeTab, user]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -275,13 +458,13 @@ export default function ProfilePage() {
           <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
             <div className="relative group">
               <ImageUpload
-                ref={imageUploadRef} // Added ref
+                ref={imageUploadRef}
                 currentImage={user?.picture}
                 onImageUpload={handleImageUpload}
                 className="w-32 h-32 border-4 border-background rounded-full"
               />
               <button
-                onClick={() => imageUploadRef.current?.triggerFileInput()} // Use ref to trigger click
+                onClick={() => imageUploadRef.current?.triggerFileInput()}
                 className="absolute -bottom-2 -right-2 bg-primary text-white p-2 rounded-full shadow-md hover:bg-primary/90 transition-all"
                 title="Upload new photo"
               >
@@ -354,6 +537,13 @@ export default function ProfilePage() {
                     Profile
                   </TabsTrigger>
                   <TabsTrigger
+                    value="posts"
+                    className="flex items-center gap-2 px-1 py-4 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none bg-transparent h-auto"
+                  >
+                    <Image className="h-4 w-4" />
+                    My Posts
+                  </TabsTrigger>
+                  <TabsTrigger
                     value="settings"
                     className="flex items-center gap-2 px-1 py-4 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none bg-transparent h-auto"
                   >
@@ -399,7 +589,7 @@ export default function ProfilePage() {
                         <div>
                           <p className="text-sm text-muted-foreground">Email</p>
                           <p className="font-medium">{user?.email}</p>
-                          </div>
+                        </div>
                       </div>
                       {user?.name && (
                         <div className="flex items-center gap-3">
@@ -473,6 +663,127 @@ export default function ProfilePage() {
                   </Card>
                 </div>
               </div>
+            </TabsContent>
+
+            {/* New Posts Tab */}
+            <TabsContent value="posts" className="pt-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>My Posts</CardTitle>
+                      <CardDescription>View and manage your posts</CardDescription>
+                    </div>
+                    <Button onClick={() => router.push('/create-post')}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      New Post
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingPosts ? (
+                    <div className="space-y-4">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="flex gap-4 items-start">
+                          <Skeleton className="h-24 w-24 rounded-md" />
+                          <div className="space-y-2 flex-1">
+                            <Skeleton className="h-4 w-[250px]" />
+                            <Skeleton className="h-4 w-[200px]" />
+                            <Skeleton className="h-4 w-[300px]" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : postsError ? (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">{postsError}</p>
+                      <Button 
+                        variant="outline" 
+                        className="mt-4" 
+                        onClick={fetchUserPosts}
+                      >
+                        Try Again
+                      </Button>
+                    </div>
+                  ) : userPosts.length === 0 ? (
+                    <div className="text-center py-12">
+                      <ImagePlus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-medium">No posts yet</h3>
+                      <p className="text-muted-foreground mt-2 mb-6">
+                        You haven't created any posts yet. Share your achievements with the community!
+                      </p>
+                      <Button onClick={() => router.push('/create-post')}>
+                        Create Your First Post
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {userPosts.map(post => (
+                        <div key={post.id} className="flex flex-col md:flex-row gap-4 border rounded-lg p-4">
+                          <div className="md:w-1/4 w-full">
+                            <div className="aspect-video rounded-md overflow-hidden bg-muted">
+                              {post.imageUrl ? (
+                                <img 
+                                  src={post.imageUrl} 
+                                  alt={post.title} 
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <ImagePlus className="h-8 w-8 text-muted-foreground" />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <div className="flex justify-between items-start">
+                              <h3 className="font-semibold text-lg">{post.title}</h3>
+                              <div className="flex space-x-2">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  onClick={() => openEditDialog(post)}
+                                >
+                                  <FileEdit className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-destructive"
+                                  onClick={() => openDeleteDialog(post)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            <p className="text-muted-foreground text-sm line-clamp-2">
+                              {post.description}
+                            </p>
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="text-muted-foreground">
+                                {new Date(post.createdAt).toLocaleDateString()}
+                              </span>
+                              <Badge variant="outline" className="bg-primary/10">
+                                {post.likes || 0} {post.likes === 1 ? 'like' : 'likes'}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+                {userPosts.length > 0 && (
+                  <CardFooter className="flex justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      Showing {userPosts.length} {userPosts.length === 1 ? 'post' : 'posts'}
+                    </p>
+                    <Button variant="outline" onClick={fetchUserPosts}>
+                      Refresh
+                    </Button>
+                  </CardFooter>
+                )}
+              </Card>
             </TabsContent>
 
             {/* Settings Tab */}
@@ -576,6 +887,117 @@ export default function ProfilePage() {
           </Tabs>
         </div>
       </section>
+
+      {/* Edit Post Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Edit Post</DialogTitle>
+            <DialogDescription>
+              Update your post details
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            <div className="grid gap-4 py-4 px-1">
+              <div className="grid gap-2">
+                <label htmlFor="edit-title" className="text-sm font-medium">
+                  Title
+                </label>
+                <Input
+                  id="edit-title"
+                  placeholder="Enter post title"
+                  value={postTitle}
+                  onChange={(e) => setPostTitle(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <label htmlFor="edit-description" className="text-sm font-medium">
+                  Description
+                </label>
+                <Textarea
+                  id="edit-description"
+                  placeholder="Enter post description"
+                  className="min-h-[100px]"
+                  value={postDescription}
+                  onChange={(e) => setPostDescription(e.target.value)}
+                />
+              </div>
+              {selectedPost?.imageUrl && (
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium">
+                    Current Image
+                  </label>
+                  <div className="h-40 w-full overflow-hidden rounded-md border">
+                    <img
+                      src={selectedPost.imageUrl}
+                      alt={selectedPost.title}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleUpdatePost} 
+              disabled={isSubmitting || !postTitle || !postDescription}
+            >
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Post Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Post</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this post? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {selectedPost && (
+              <div className="flex flex-col items-center justify-center space-y-2 text-center">
+                <div className="h-24 w-32 overflow-hidden rounded-md border">
+                  {selectedPost.imageUrl ? (
+                    <img
+                      src={selectedPost.imageUrl}
+                      alt={selectedPost.title}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-muted">
+                      <ImagePlus className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+                <p className="font-medium">{selectedPost.title}</p>
+                <p className="text-sm text-muted-foreground">
+                  Created on {new Date(selectedPost.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeletePost} 
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Deleting...' : 'Delete Post'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
