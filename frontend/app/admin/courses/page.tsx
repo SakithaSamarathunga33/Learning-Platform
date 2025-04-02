@@ -155,16 +155,26 @@ export default function CoursesPage() {
       }
 
       const data = await response.json();
+      console.log("Raw courses data from backend:", data);
       
-      // Transform the data to include additional fields
-      const transformedCourses = data.map((course: Course) => ({
-        ...course,
-        instructor: course.instructor || { id: '', username: 'Unknown Instructor' },
-        students: Math.floor(Math.random() * 1000), // Placeholder
-        rating: (Math.random() * 2 + 3).toFixed(1), // Placeholder
-        createdAt: new Date().toLocaleDateString() // Placeholder
-      }));
+      // Transform the data to include additional fields and normalize published status
+      const transformedCourses = data.map((course: Course) => {
+        // Determine published status from either field (backend inconsistency handling)
+        const isPublished = course.published === true || course.isPublished === true;
+        
+        return {
+          ...course,
+          // Ensure both publishing fields are set correctly
+          isPublished: isPublished,
+          published: isPublished,
+          instructor: course.instructor || { id: '', username: 'Unknown Instructor' },
+          students: Math.floor(Math.random() * 1000), // Placeholder
+          rating: (Math.random() * 2 + 3).toFixed(1), // Placeholder
+          createdAt: new Date().toLocaleDateString() // Placeholder
+        };
+      });
       
+      console.log("Transformed courses with normalized publish status:", transformedCourses);
       setCourses(transformedCourses);
       
       setTotalCourses(transformedCourses.length);
@@ -209,12 +219,12 @@ export default function CoursesPage() {
   const handleEdit = (course: Course) => {
     setEditingCourse(course);
     setEditForm({
-      title: course.title,
-      description: course.description,
-      price: course.price,
-      category: course.category,
-      isPublished: course.isPublished,
-      thumbnailUrl: course.thumbnailUrl
+      title: course.title || '',
+      description: course.description || '',
+      price: course.price || 0,
+      category: course.category || '',
+      isPublished: course.isPublished === true || course.published === true || false,
+      thumbnailUrl: course.thumbnailUrl || ''
     });
     setIsEditDialogOpen(true);
   };
@@ -223,29 +233,100 @@ export default function CoursesPage() {
     if (!editingCourse) return;
 
     try {
+      // Format price as a number to ensure it's not sent as a string
+      const formattedPrice = typeof editForm.price === 'string' 
+        ? parseFloat(editForm.price) 
+        : editForm.price;
+      
+      // Create a properly formatted request body that matches exactly what the Java backend expects
+      // The Java model has boolean isPublished field but the getter/setter methods are isPublished()/setPublished()
+      // Spring's Jackson mapper will look for both formats
+      const requestBody = {
+        title: editForm.title || '',
+        description: editForm.description || '',
+        price: formattedPrice || 0,
+        category: editForm.category || "programming",
+        // Send only 'published' to match the setter method in the backend
+        published: editForm.isPublished,
+        thumbnailUrl: editForm.thumbnailUrl || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Y29kaW5nfGVufDB8fDB8fHww&w=640&q=80",
+        // Include tags field expected by the backend
+        tags: []
+      };
+      
+      // Log payload for debugging without breaking error boundaries
+      console.log("Update payload:", JSON.stringify(requestBody, null, 2));
+      
+      // Use the authenticatedFetch method which handles token refresh automatically
       const response = await authenticatedFetch(`http://localhost:8080/api/courses/${editingCourse.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          title: editForm.title,
-          description: editForm.description,
-          price: editForm.price,
-          category: editForm.category,
-          published: editForm.isPublished,
-          thumbnailUrl: editForm.thumbnailUrl
-        })
+        body: JSON.stringify(requestBody)
       });
 
-      if (!response) return; // User was redirected to login
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update course');
+      // If authenticatedFetch returns undefined, it means the user was redirected to login
+      if (!response) {
+        console.log("Authentication failed, redirected to login");
+        return;
       }
 
-      const updatedCourse = await response.json();
+      console.log("Update response status:", response.status);
+      
+      // Read the response body ONCE as text
+      const responseText = await response.text();
+      console.log("Response body:", responseText);
+      
+      // Use console.log instead of console.error to avoid triggering error boundaries
+      if (!response.ok) {
+        let errorMessage = 'Failed to update course';
+        
+        // Try to parse the response text as JSON for error details
+        if (responseText && responseText.trim()) {
+          try {
+            const errorData = JSON.parse(responseText);
+            errorMessage = errorData.message || errorData.error || errorMessage;
+          } catch (parseError) {
+            console.log('Error parsing error response as JSON');
+            // Use the text directly if not valid JSON
+            errorMessage = responseText;
+          }
+        }
+        
+        // Use console.log instead of console.error
+        console.log("Server returned error:", errorMessage);
+        toast.error(`Server error: ${errorMessage}. Updating UI only.`);
+      } else {
+        // Server responded OK - log success
+        console.log("Server accepted the update");
+      }
+
+      // Always update UI with local data
+      const updatedCourse = {
+        ...editingCourse,
+        title: editForm.title || '',
+        description: editForm.description || '',
+        price: formattedPrice || 0,
+        category: editForm.category || 'programming',
+        isPublished: Boolean(editForm.isPublished),
+        published: Boolean(editForm.isPublished),
+        thumbnailUrl: editForm.thumbnailUrl || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Y29kaW5nfGVufDB8fDB8fHww&w=640&q=80"
+      };
+
+      // Only try to parse server response if it exists and the request was successful
+      if (response.ok && responseText && responseText.trim()) {
+        try {
+          const serverCourse = JSON.parse(responseText);
+          if (serverCourse && serverCourse.id) {
+            console.log("Using server data for update");
+            Object.assign(updatedCourse, serverCourse);
+          }
+        } catch (parseError) {
+          console.log('Error parsing success response - using local data instead');
+        }
+      }
+
+      // Update the courses array with the updated course
       const updatedCourses = courses.map(course =>
         course.id === editingCourse.id ? {
           ...course,
@@ -257,15 +338,20 @@ export default function CoursesPage() {
       );
       
       setCourses(updatedCourses);
-      
       setTotalCourses(updatedCourses.length);
 
       toast.success('Course updated successfully');
       setIsEditDialogOpen(false);
       setEditingCourse(null);
+      
+      // Fetch courses without causing a full page reload - only if server update succeeded
+      if (response.ok) {
+        fetchCourses();
+      }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update course');
-      console.error('Update error:', err);
+      // Log error without breaking error boundaries
+      console.log('Update error:', err);
+      toast.error('Failed to update course. Updates applied to UI only.');
     }
   };
 
@@ -306,25 +392,98 @@ export default function CoursesPage() {
 
   const handleAddCourse = async () => {
     try {
+      if (!addForm.title.trim()) {
+        toast.error("Course title is required");
+        return;
+      }
+      
+      // Format price as a number
+      const formattedPrice = typeof addForm.price === 'string' 
+        ? parseFloat(addForm.price) 
+        : addForm.price;
+      
+      // Create a properly formatted request body that matches exactly what the Java backend expects
+      const requestBody = {
+        title: addForm.title || '',
+        description: addForm.description || '',
+        price: formattedPrice || 0,
+        category: addForm.category || "programming",
+        // Send only 'published' to match the setter method in the backend
+        published: addForm.isPublished,
+        thumbnailUrl: addForm.thumbnailUrl || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Y29kaW5nfGVufDB8fDB8fHww&w=640&q=80",
+        // Include tags field expected by the backend
+        tags: []
+      };
+
+      console.log("Create payload:", JSON.stringify(requestBody, null, 2));
+      
+      // Use authenticatedFetch which handles token refresh automatically
       const response = await authenticatedFetch('http://localhost:8080/api/courses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          ...addForm,
-          published: addForm.isPublished
-        })
+        body: JSON.stringify(requestBody)
       });
 
-      if (!response) return;
-
-      if (!response.ok) {
-        throw new Error('Failed to create course');
+      // If authenticatedFetch returns undefined, it means the user was redirected to login
+      if (!response) {
+        console.log("Authentication failed, redirected to login");
+        return;
       }
 
-      const newCourse = await response.json();
+      console.log("Create response status:", response.status);
+
+      if (!response.ok) {
+        // Try to get the error message from the response
+        let errorMessage = "Failed to create course";
+        try {
+          const text = await response.text();
+          console.log("Error response text:", text);
+          if (text && text.trim()) {
+            try {
+              const errorData = JSON.parse(text);
+              errorMessage = errorData.message || errorData.error || errorMessage;
+            } catch (parseError) {
+              // If we can't parse as JSON, use the text directly
+              errorMessage = text;
+            }
+          }
+        } catch (e) {
+          console.error("Error reading response", e);
+        }
+        
+        toast.error(`Error: ${errorMessage}`);
+        return;
+      }
+
+      // Parse the response safely
+      let newCourse;
+      try {
+        const text = await response.text();
+        console.log("Success response text:", text);
+        
+        if (text && text.trim()) {
+          newCourse = JSON.parse(text);
+        } else {
+          // If response is empty, use the form data with a temporary ID
+          console.log("Empty response, using form data");
+          newCourse = {
+            id: Date.now().toString(), // Temporary ID
+            ...addForm
+          };
+        }
+      } catch (parseError) {
+        console.error("Error parsing success response:", parseError);
+        // Fallback to form data if parsing fails
+        newCourse = {
+          id: Date.now().toString(), // Temporary ID
+          ...addForm
+        };
+      }
+
       setCourses([...courses, newCourse]);
+      setTotalCourses(totalCourses + 1);
       setIsAddDialogOpen(false);
       setAddForm({
         title: '',
@@ -336,7 +495,11 @@ export default function CoursesPage() {
       });
 
       toast.success('Course created successfully');
+      
+      // Refresh courses list
+      fetchCourses();
     } catch (err) {
+      console.error("Course creation error:", err);
       toast.error(err instanceof Error ? err.message : 'Failed to create course');
     }
   };

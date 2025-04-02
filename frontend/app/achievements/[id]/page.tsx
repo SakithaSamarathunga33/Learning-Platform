@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
 import { 
   Card, 
@@ -12,11 +12,16 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Heart, User, Calendar, LinkIcon, Share } from "lucide-react";
+import { ChevronLeft, Heart, User, Calendar, LinkIcon, Share, MessageCircle, Send, Loader2, Image, AlertTriangle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { useRouter } from 'next/navigation';
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { formatDistanceToNow, format as dateFormat } from 'date-fns';
+import axios from 'axios';
 
 interface User {
   id: string;
@@ -38,84 +43,76 @@ interface Achievement {
   hasLiked?: boolean;
 }
 
+interface Comment {
+  id: string;
+  text: string;
+  user: User;
+  achievementId: string;
+  createdAt: string;
+}
+
 export default function AchievementDetailPage({ params }: { params: { id: string } }) {
+  // Properly unwrap params using React.use()
+  const unwrappedParams = React.use(params);
+  const achievementId = unwrappedParams.id;
+  
   const [achievement, setAchievement] = useState<Achievement | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [isPostingComment, setIsPostingComment] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingComments, setIsLoadingComments] = useState(true);
   const [error, setError] = useState('');
+  const [commentsError, setCommentsError] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLikingInProgress, setIsLikingInProgress] = useState(false);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   const router = useRouter();
   
-  // Debug: Log params
-  console.log('Achievement detail params:', params);
-  console.log('Achievement ID type:', typeof params.id);
-  console.log('Achievement ID value:', params.id);
-
   useEffect(() => {
     const token = localStorage.getItem('token');
     setIsAuthenticated(!!token);
     
-    // Validate ID format before fetching
-    if (!params.id || params.id === 'undefined' || params.id === 'null') {
+    if (!achievementId || achievementId === 'undefined' || achievementId === 'null') {
       setError('Invalid achievement ID');
       setIsLoading(false);
+      setIsLoadingComments(false);
       return;
     }
     
-    const fetchAchievement = async () => {
+    const fetchAchievementAndComments = async () => {
+      setIsLoading(true);
+      setIsLoadingComments(true);
+      setError('');
+      setCommentsError('');
+      
       try {
-        setIsLoading(true);
-        setError('');
-        
-        // Use the Next.js API route instead of directly calling the backend
-        console.log(`Fetching achievement with ID: ${params.id} via proxy API`);
-        const response = await fetch(`/api/achievements/${params.id}`, {
-          headers: {
-            'Content-Type': 'application/json'
-          },
+        // Fetch achievement first
+        const achievementRes = await fetch(`/api/achievements/${achievementId}`, {
+          headers: { 'Content-Type': 'application/json' },
           cache: 'no-store'
         });
 
-        console.log(`Response status: ${response.status}`);
-        
-        let data;
-        try {
-          const text = await response.text();
-          console.log('Response text:', text);
-          data = text ? JSON.parse(text) : null;
-          console.log('Parsed data:', data);
-        } catch (e) {
-          console.error('Error parsing response:', e);
-          throw new Error('Failed to load achievement data');
-        }
+        const achievementData = await achievementRes.json();
+        if (!achievementRes.ok) throw new Error(achievementData?.message || 'Failed to fetch achievement');
+        setAchievement(achievementData);
 
-        if (!response.ok) {
-          console.error('Error response:', data);
-          throw new Error(data?.error || data?.message || 'Failed to fetch achievement');
-        }
+        // Then fetch comments separately to help isolate issues
+        await fetchAchievementComments(achievementId);
 
-        if (!data) {
-          throw new Error('No achievement data available');
-        }
-
-        // For non-authenticated users, ensure hasLiked is false
-        if (!token) {
-          data.hasLiked = false;
-        }
-
-        console.log('Achievement data received:', data);
-        setAchievement(data);
       } catch (err) {
-        console.error('Error fetching achievement:', err);
-        setError(err instanceof Error ? err.message : 'Error loading achievement. Please try again later.');
+        console.error('[FRONTEND-UI] Error fetching achievement:', err);
+        const message = err instanceof Error ? err.message : 'Error loading data. Please try again later.';
+        if (!achievement) {
+          setError(message);
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchAchievement();
-  }, [params.id]);
+    fetchAchievementAndComments();
+  }, [achievementId]); // Use unwrapped achievementId instead of params.id
 
   const handleLike = async () => {
     if (!isAuthenticated) {
@@ -136,19 +133,14 @@ export default function AchievementDetailPage({ params }: { params: { id: string
     if (!achievement) return;
 
     try {
-      // Don't allow multiple like requests
       if (isLikingInProgress) return;
       
-      // Mark as being liked
       setIsLikingInProgress(true);
       
       const token = localStorage.getItem('token');
       
-      // If already liked, unlike it
       const method = achievement.hasLiked ? 'DELETE' : 'POST';
       
-      // Use the Next.js API route instead of directly calling the backend
-      console.log(`${method} request for achievement with ID: ${achievement.id} via proxy API`);
       const response = await fetch(`/api/achievements/${achievement.id}/like`, {
         method,
         headers: {
@@ -160,7 +152,6 @@ export default function AchievementDetailPage({ params }: { params: { id: string
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        console.error('Like operation error:', errorData);
         throw new Error(
           errorData?.error || 
           errorData?.message || 
@@ -169,9 +160,7 @@ export default function AchievementDetailPage({ params }: { params: { id: string
       }
 
       const data = await response.json();
-      console.log('Like operation response:', data);
       
-      // Update achievement data
       setAchievement(prev => 
         prev ? {
           ...prev,
@@ -186,7 +175,6 @@ export default function AchievementDetailPage({ params }: { params: { id: string
         variant: "default",
       });
     } catch (error) {
-      console.error('Error with like operation:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to process like operation. Please try again.",
@@ -214,7 +202,6 @@ export default function AchievementDetailPage({ params }: { params: { id: string
         console.error('Error sharing:', error);
       });
     } else {
-      // Fallback for browsers that don't support navigator.share
       navigator.clipboard.writeText(window.location.href)
         .then(() => {
           toast({
@@ -233,224 +220,312 @@ export default function AchievementDetailPage({ params }: { params: { id: string
     }
   };
 
-  return (
-    <div className="min-h-screen pb-16 relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none -z-5">
-        <div className="absolute top-1/4 -left-10 w-72 h-72 bg-primary/10 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
-        <div className="absolute top-3/4 -right-10 w-96 h-96 bg-secondary/10 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
-        <div className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-accent/10 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
-      </div>
+  const handleCommentSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!newComment.trim() || !achievement || isPostingComment) return;
 
-      {/* Back button at the top */}
+    if (!isAuthenticated) {
+      toast({
+        title: "Login Required",
+        description: "You need to be logged in to post a comment.",
+        action: (
+          <ToastAction altText="Login" asChild>
+            <Link href={`/login?redirect=${encodeURIComponent(window.location.pathname)}`}>
+              Login
+            </Link>
+          </ToastAction>
+        ),
+      });
+      return;
+    }
+
+    setIsPostingComment(true);
+    setCommentsError('');
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+      
+      const response = await fetch(`/api/achievements/${achievement.id}/comments`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text: newComment })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to post comment');
+      }
+
+      const data = await response.json();
+
+      // Add the new comment to the state and clear the input
+      setComments(prev => [data, ...prev]);
+      setNewComment('');
+      
+      toast({
+        title: "Comment posted successfully",
+      });
+      
+      // Refetch comments to ensure we have the latest data from the server
+      setTimeout(() => {
+        fetchAchievementComments(achievement.id);
+      }, 500);
+      
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to post comment. Please try again.';
+      setCommentsError(message);
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsPostingComment(false);
+    }
+  };
+
+  // Separate function to fetch comments for an achievement
+  const fetchAchievementComments = async (achievementId: string) => {
+    try {
+      setIsLoadingComments(true);
+      
+      const response = await fetch(`/api/achievements/${achievementId}/comments`, {
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store'
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData?.message || 'Failed to fetch comments');
+      }
+      
+      const commentsData = await response.json();
+      
+      // Only update state if the data is an array
+      if (Array.isArray(commentsData)) {
+        setComments(commentsData);
+        setCommentsError('');
+      } else {
+        setComments([]);
+        setCommentsError('Invalid data format received');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error loading comments. Please try again.';
+      setCommentsError(message);
+    } finally {
+      setIsLoadingComments(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen pb-16 bg-gradient-to-br from-background to-muted/30">
       <div className="container mx-auto px-4 pt-8">
         <Link href="/feed">
-          <Button variant="ghost" className="mb-6 pl-0 hover:bg-transparent">
+          <Button variant="ghost" className="mb-6 pl-0 hover:bg-transparent text-muted-foreground hover:text-primary">
             <ChevronLeft className="mr-2 h-4 w-4" />
             Back to Feed
           </Button>
         </Link>
-      </div>
 
-      <div className="container mx-auto px-4">
-        {isLoading ? (
-          <div className="flex justify-center items-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        {isLoading && (
+          <div className="flex justify-center items-center h-64">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
           </div>
-        ) : error ? (
-          <Card className="bg-destructive/10 border-destructive/20 mx-auto max-w-3xl">
+        )}
+
+        {error && !isLoading && (
+          <Card className="bg-destructive/10 border-destructive">
             <CardHeader>
-              <CardTitle className="text-destructive flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-destructive">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="8" x2="12" y2="12"></line>
-                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                </svg>
-                Error Loading Achievement
-              </CardTitle>
+              <CardTitle className="text-destructive">Error Loading Achievement</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col items-center text-center gap-3">
-                <p className="text-destructive/80 mb-4">{error}</p>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setError('');
-                      setIsLoading(true);
-                      window.location.reload();
-                    }}
-                  >
-                    Try Again
-                  </Button>
-                  
-                  <Link href="/feed" className="w-full">
-                    <Button variant="default" className="w-full">
-                      Return to Feed
-                    </Button>
-                  </Link>
-                </div>
-                
-                {error.toLowerCase().includes('logged in') && (
-                  <Link href={`/login?redirect=${encodeURIComponent(window.location.pathname)}`} className="w-full max-w-md mt-2">
-                    <Button variant="default" className="w-full">
-                      Log In
-                    </Button>
-                  </Link>
-                )}
-                
-                <div className="mt-6 text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
-                  <p className="font-medium mb-2">If the problem persists, please try:</p>
-                  <ul className="list-disc list-inside space-y-1 text-left">
-                    <li>Checking your internet connection</li>
-                    <li>Logging out and logging back in</li>
-                    <li>Clearing your browser cache</li>
-                    <li>Contacting support if the issue continues</li>
-                  </ul>
-                </div>
-              </div>
+              <p>{error}</p>
+              <Button onClick={() => router.push('/feed')} className="mt-4">Go Back</Button>
             </CardContent>
           </Card>
-        ) : achievement ? (
-          <div className="max-w-3xl mx-auto">
-            <Card className="overflow-hidden border rounded-xl shadow-md">
-              {/* Achievement Image */}
-              <div className="relative h-[300px] md:h-[400px] w-full">
-                {achievement.imagePublicId ? (
-                  <img
-                    src={achievement.imageUrl || `https://res.cloudinary.com/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload/${achievement.imagePublicId}`}
-                    alt={achievement.title}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="bg-muted h-full w-full flex items-center justify-center">
-                    <p className="text-muted-foreground">No image available</p>
-                  </div>
-                )}
-              </div>
-              
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="px-2 py-1">
-                        <Calendar className="mr-1 h-3 w-3" />
-                        {new Date(achievement.createdAt).toLocaleDateString()}
-                      </Badge>
+        )}
+
+        {achievement && !isLoading && !error && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2">
+              <Card className="overflow-hidden shadow-lg border rounded-xl">
+                <CardHeader className="relative p-0">
+                  {achievement.imageUrl ? (
+                    <img
+                      src={achievement.imageUrl}
+                      alt={achievement.title}
+                      className="w-full h-64 md:h-96 object-cover"
+                    />
+                  ) : (
+                    <div className="bg-muted h-64 md:h-96 w-full flex items-center justify-center">
+                      <p className="text-muted-foreground">No image available</p>
                     </div>
-                    <CardTitle className="text-2xl md:text-3xl mt-2">{achievement.title}</CardTitle>
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className={`h-10 w-10 ${achievement.hasLiked ? "text-red-500" : ""}`}
-                            onClick={handleLike}
-                            disabled={isLikingInProgress}
-                          >
-                            <Heart className={`h-5 w-5 ${achievement.hasLiked ? "fill-red-500" : ""} ${isLikingInProgress ? "animate-ping" : ""}`} />
-                            <span className="sr-only">Like</span>
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {isAuthenticated 
-                            ? (achievement.hasLiked 
-                                ? "You liked this achievement" 
-                                : "Like this achievement")
-                            : "Login to like this achievement"
-                          }
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={shareAchievement}
-                          >
-                            <Share className="h-5 w-5" />
-                            <span className="sr-only">Share</span>
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          Share this achievement
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-                      {achievement.user?.profilePicture ? (
-                        <img 
-                          src={achievement.user.profilePicture} 
-                          alt={achievement.user.firstName || achievement.user.username} 
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <User className="h-5 w-5 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">
-                        {achievement.user?.firstName && achievement.user?.lastName 
-                          ? `${achievement.user.firstName} ${achievement.user.lastName}` 
-                          : achievement.user?.username || 'Anonymous User'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {achievement.user?.username ? `@${achievement.user.username}` : ''}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-1">
-                    <Heart className={`h-5 w-5 ${achievement.hasLiked ? "fill-red-500 text-red-500" : "text-muted-foreground"}`} />
-                    <span className="text-sm font-medium">{achievement.likes} {achievement.likes === 1 ? 'like' : 'likes'}</span>
-                  </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-2">Description</h3>
-                    <p className="text-muted-foreground whitespace-pre-line">
-                      {achievement.description}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-              
-              <CardFooter className="flex justify-between border-t pt-6">
-                <div>
-                  {isAuthenticated && achievement.user?.id === localStorage.getItem('userId') && (
-                    <Link href={`/achievements/${achievement.id}/edit`}>
-                      <Button variant="outline" className="mr-2">
-                        Edit Achievement
-                      </Button>
-                    </Link>
                   )}
-                </div>
-                <Link href="/feed">
-                  <Button variant="ghost">
-                    <ChevronLeft className="mr-2 h-4 w-4" />
-                    Back to Feed
-                  </Button>
-                </Link>
-              </CardFooter>
-            </Card>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                </CardHeader>
+                
+                <CardContent className="p-6">
+                  <CardTitle className="text-3xl font-bold mb-4">{achievement.title}</CardTitle>
+                  <p className="text-muted-foreground leading-relaxed">{achievement.description}</p>
+                </CardContent>
+
+                <Separator />
+
+                <CardFooter className="p-6 flex flex-col items-start">
+                  <h3 className="text-xl font-semibold mb-4 flex items-center">
+                    <MessageCircle className="mr-2 h-5 w-5"/> Comments ({comments.length})
+                  </h3>
+
+                  {isAuthenticated && (
+                     <form onSubmit={handleCommentSubmit} className="w-full mb-6">
+                       <div className="flex gap-3">
+                         <Textarea
+                           placeholder="Write your comment..."
+                           value={newComment}
+                           onChange={(e) => setNewComment(e.target.value)}
+                           disabled={isPostingComment}
+                           rows={2}
+                           className="flex-grow resize-none"
+                         />
+                         <Button type="submit" disabled={!newComment.trim() || isPostingComment} size="icon">
+                           {isPostingComment ? (
+                             <Loader2 className="h-4 w-4 animate-spin" />
+                           ) : (
+                             <Send className="h-4 w-4" />
+                           )}
+                         </Button>
+                       </div>
+                     </form>
+                  )} 
+                  {!isAuthenticated && (
+                    <p className="text-sm text-muted-foreground mb-4"> 
+                      <Link href={`/login?redirect=${encodeURIComponent(window.location.pathname)}`} className="underline hover:text-primary">Log in</Link> to post a comment.
+                    </p>
+                  )}
+
+                  <div className="w-full space-y-4">
+                    {isLoadingComments && (
+                      <div className="flex justify-center items-center p-4">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                         <span className="ml-2 text-muted-foreground">Loading comments...</span>
+                      </div>
+                    )}
+                    {commentsError && !isLoadingComments && (
+                       <p className="text-red-600 text-sm">Error loading comments: {commentsError}</p>
+                    )}
+                    {!isLoadingComments && !commentsError && comments.length === 0 && (
+                       <p className="text-muted-foreground text-sm text-center py-4">No comments yet. Be the first to comment!</p>
+                    )}
+                    {!isLoadingComments && !commentsError && comments.map(comment => (
+                      <div key={comment.id} className="flex items-start gap-3">
+                        <Avatar className="h-8 w-8 mt-1">
+                           <AvatarImage src={comment.user?.profilePicture} alt={comment.user?.username || 'User'} />
+                           <AvatarFallback className="text-xs">
+                             {(comment.user?.firstName || comment.user?.username || 'U').charAt(0).toUpperCase()}
+                           </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 bg-muted/50 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <Link href={`/profile/${comment.user.id}`} className="font-semibold text-sm hover:underline">
+                              {comment.user?.firstName && comment.user?.lastName
+                                ? `${comment.user.firstName} ${comment.user.lastName}`
+                                : comment.user?.username || 'Anonymous'}
+                            </Link>
+                          </div>
+                          <p className="text-sm text-foreground/90">{comment.text}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardFooter>
+              </Card>
+            </div>
+
+            <div className="lg:col-span-1 space-y-6">
+              <Card className="shadow border rounded-xl">
+                <CardHeader>
+                  <CardTitle>Author</CardTitle>
+                </CardHeader>
+                <CardContent className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src={achievement.user.profilePicture} alt={achievement.user.username} />
+                    <AvatarFallback>
+                       {(achievement.user?.firstName || achievement.user?.username || 'U').charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <Link href={`/profile/${achievement.user.id}`} className="font-semibold hover:underline">
+                       {achievement.user?.firstName && achievement.user?.lastName 
+                         ? `${achievement.user.firstName} ${achievement.user.lastName}` 
+                         : achievement.user?.username || 'Anonymous User'}
+                    </Link>
+                    <p className="text-sm text-muted-foreground">@{achievement.user.username}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow border rounded-xl">
+                <CardHeader>
+                  <CardTitle>Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    <span>Posted on {new Date(achievement.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Heart className="h-4 w-4" />
+                    <span>{achievement.likes} {achievement.likes === 1 ? 'like' : 'likes'}</span>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="shadow border rounded-xl">
+                 <CardHeader>
+                   <CardTitle>Actions</CardTitle>
+                 </CardHeader>
+                 <CardContent className="flex flex-col gap-3">
+                   <TooltipProvider delayDuration={100}>
+                     <Tooltip>
+                       <TooltipTrigger asChild>
+                          <Button
+                           variant={achievement.hasLiked ? "default" : "outline"}
+                           onClick={handleLike}
+                           disabled={isLikingInProgress}
+                           className="w-full justify-center"
+                         >
+                           {isLikingInProgress ? (
+                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                           ) : (
+                             <Heart className={`mr-2 h-4 w-4 ${achievement.hasLiked ? "fill-white" : ""}`} />
+                           )}
+                           {achievement.hasLiked ? 'Unlike' : 'Like'} ({achievement.likes})
+                         </Button>
+                       </TooltipTrigger>
+                       <TooltipContent>
+                         {isAuthenticated ? (achievement.hasLiked ? 'Remove your like' : 'Show your appreciation') : 'Log in to like'}
+                       </TooltipContent>
+                     </Tooltip>
+                   </TooltipProvider>
+
+                   <Button variant="outline" onClick={shareAchievement} className="w-full">
+                     <Share className="mr-2 h-4 w-4" /> Share
+                   </Button>
+                   
+                   {/* Optional: Add Edit/Delete buttons if the current user is the author */} 
+                   {/* Example: Check if currentUser.id === achievement.user.id */}
+                 </CardContent>
+               </Card>
+
+            </div>
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   );

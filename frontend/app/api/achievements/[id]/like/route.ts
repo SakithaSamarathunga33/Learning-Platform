@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const id = context.params.id;
+    const { id } = params;
     
     // Get the authorization header from the incoming request
     const authHeader = request.headers.get('Authorization');
@@ -47,10 +47,10 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const id = context.params.id;
+    const { id } = params;
     
     // Get the authorization header from the incoming request
     const authHeader = request.headers.get('Authorization');

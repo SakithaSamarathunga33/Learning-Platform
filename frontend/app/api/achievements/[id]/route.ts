@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Define a helper function to get params safely
-const getParams = async (context: { params: { id: string } }) => {
-  return context.params;
-};
-
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    // Safely get params
-    const params = await getParams(context);
-    const id = params.id;
+    const { id } = params;
     
     // Get the API URL from env or use default
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -69,14 +62,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    // Safely get params
-    const params = await getParams(context);
-    const id = params.id;
-    
-    console.log(`API Route: Liking achievement with ID: ${id}`);
+    const { id } = params;
     
     // Get the authorization header from the incoming request
     const authHeader = request.headers.get('Authorization');
@@ -106,7 +95,6 @@ export async function POST(
     // Return the response with the same status
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
-    console.error('Error proxying like request:', error);
     return NextResponse.json(
       { error: 'Failed to like achievement' },
       { status: 500 }
@@ -116,14 +104,10 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    // Safely get params
-    const params = await getParams(context);
-    const id = params.id;
-    
-    console.log(`API Route: Deleting achievement with ID: ${id}`);
+    const { id } = params;
     
     // Get the authorization header from the incoming request
     const authHeader = request.headers.get('Authorization');
@@ -164,7 +148,6 @@ export async function DELETE(
     
     if (!response.ok) {
       const errorData = await response.text();
-      console.error(`Error from backend: ${errorData}`);
       return NextResponse.json(
         { error: `Failed to delete achievement: ${response.status} ${response.statusText}` },
         { status: response.status }
@@ -177,7 +160,6 @@ export async function DELETE(
       { status: 200 }
     );
   } catch (error) {
-    console.error('Error proxying achievement delete request:', error);
     return NextResponse.json(
       { error: 'Failed to delete achievement' },
       { status: 500 }
@@ -187,14 +169,10 @@ export async function DELETE(
 
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    // Safely get params
-    const params = await getParams(context);
-    const id = params.id;
-    
-    console.log(`API Route: Updating achievement with ID: ${id}`);
+    const { id } = params;
     
     // Get the authorization header from the incoming request
     const authHeader = request.headers.get('Authorization');
@@ -226,8 +204,6 @@ export async function PUT(
       ? `${apiUrl}/api/achievements/${id}?admin=true` 
       : `${apiUrl}/api/achievements/${id}`;
     
-    console.log('Making request to backend URL:', url, 'with admin header:', isAdminRequest);
-    
     // Make the request to the backend
     const response = await fetch(url, {
       method: 'PUT',
@@ -246,7 +222,6 @@ export async function PUT(
       
       try {
         const errorData = await response.json();
-        console.error('Backend error response:', errorData);
         
         if (response.status === 403) {
           errorMessage = errorData.message || 'You do not have permission to update this post';
@@ -287,7 +262,6 @@ export async function PUT(
       );
     }
   } catch (error) {
-    console.error('Error proxying post update request:', error);
     return NextResponse.json(
       { error: 'Failed to update post' },
       { status: 500 }
