@@ -34,14 +34,6 @@ const routes = [
     path: "/feed",
   },
   {
-    name: "Categories",
-    path: "/categories",
-  },
-  {
-    name: "Instructors",
-    path: "/mentors", // Matching your existing route
-  },
-  {
     name: "About",
     path: "/about",
   },
@@ -173,14 +165,6 @@ export default function Navbar() {
                 {route.name}
               </Link>
             ))}
-              <Link
-                href="/community"
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                pathname === "/community" ? "text-primary" : "text-foreground/70"
-              }`}
-              >
-                Community
-              </Link>
           </nav>
             </div>
 
@@ -301,14 +285,6 @@ export default function Navbar() {
                       {route.name}
             </Link>
                   ))}
-            <Link
-              href="/community"
-                    className={`text-base font-medium transition-colors hover:text-primary ${
-                      pathname === "/community" ? "text-primary" : "text-foreground/70"
-                    }`}
-            >
-              Community
-            </Link>
                 </nav>
 
                 <div className="mt-auto flex flex-col gap-2 py-4 border-t">

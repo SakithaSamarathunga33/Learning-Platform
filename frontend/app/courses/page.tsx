@@ -81,10 +81,11 @@ export default function CoursesPage() {
         throw new Error(`Failed to fetch courses: ${response.status}`);
       }
       const data = await response.json();
-      const publishedCourses = data.filter((course: Course) =>
+      // Only show published courses to users
+      const publishedCourses = data.filter((course: Course) => 
         course.isPublished === true || course.published === true
       );
-      // Add dummy data for fields missing in your DB model but used in UI example
+      // Add UI data for display
       const coursesWithUIData = publishedCourses.map((course: Course) => ({
         ...course,
         level: course.level || ['Beginner', 'Intermediate', 'Advanced', 'All Levels'][Math.floor(Math.random() * 4)], // Example: Assign random level

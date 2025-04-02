@@ -1,9 +1,11 @@
 package com.example.demo.controller;
 
 import com.example.demo.model.Achievement;
+import com.example.demo.model.Comment;
 import com.example.demo.model.User;
 import com.example.demo.model.UserLike;
 import com.example.demo.repository.AchievementRepository;
+import com.example.demo.repository.CommentRepository;
 import com.example.demo.repository.UserLikeRepository;
 import com.example.demo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -28,6 +31,9 @@ public class AchievementController {
 
     @Autowired
     private UserLikeRepository userLikeRepository;
+
+    @Autowired
+    private CommentRepository commentRepository;
 
     // Get all achievements (feed) - public endpoint, no authentication required
     @GetMapping
@@ -256,7 +262,8 @@ public class AchievementController {
         userLikeRepository.delete(existingLike.get());
         
         // Update achievement likes count
-        if (achievement.getLikes() > 0) {
+        // Make sure likes don't go below 0
+        if (achievement.getLikes() > 0) { 
             achievement.setLikes(achievement.getLikes() - 1);
             achievementRepository.save(achievement);
         }
@@ -266,4 +273,116 @@ public class AchievementController {
             "hasLiked", false
         ), HttpStatus.OK);
     }
-} 
+
+    // --- Comment Endpoints --- //
+
+    // Get comments for a specific achievement
+    @GetMapping("/{id}/comments")
+    public ResponseEntity<List<Comment>> getAchievementComments(@PathVariable String id) {
+        System.out.println("==== Fetching comments for achievement: " + id + " ====");
+        
+        // Check if achievement exists (optional, but good practice)
+        if (!achievementRepository.existsById(id)) {
+            System.out.println("Achievement not found with ID: " + id);
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        
+        try {
+            // Explicitly query the database to verify comments exist
+            System.out.println("Querying database for comments with achievementId: " + id);
+            List<Comment> comments = commentRepository.findByAchievementIdOrderByCreatedAtDesc(id);
+            
+            System.out.println("Found " + comments.size() + " comments in database");
+            
+            // Log the first few comments for debugging
+            if (!comments.isEmpty()) {
+                int logCount = Math.min(comments.size(), 3);
+                for (int i = 0; i < logCount; i++) {
+                    Comment comment = comments.get(i);
+                    System.out.println("Comment " + (i+1) + ": ID=" + comment.getId() + 
+                                     ", Text=" + comment.getText() + 
+                                     ", User=" + (comment.getUser() != null ? 
+                                                comment.getUser().getUsername() : "null") +
+                                     ", CreatedAt=" + comment.getCreatedAt());
+                }
+            } else {
+                System.out.println("No comments found in database for achievement: " + id);
+            }
+            
+            return new ResponseEntity<>(comments, HttpStatus.OK);
+        } catch (Exception e) {
+            System.err.println("Error fetching comments: " + e.getMessage());
+            e.printStackTrace();
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // Post a new comment on an achievement
+    @PostMapping("/{id}/comments")
+    public ResponseEntity<?> addComment(
+            @PathVariable String id,
+            @RequestBody Comment comment, // Expecting JSON like { "text": "..." }
+            Authentication authentication) {
+
+        System.out.println("==== Processing comment submission ====");
+        System.out.println("Achievement ID: " + id);
+        System.out.println("Comment text: " + (comment != null ? comment.getText() : "null"));
+        System.out.println("Authentication: " + (authentication != null ? authentication.getName() : "null"));
+
+        if (authentication == null) {
+            System.out.println("Authentication is null - returning 401");
+            return new ResponseEntity<>("Authentication required", HttpStatus.UNAUTHORIZED);
+        }
+
+        Optional<User> userOptional = userRepository.findByUsername(authentication.getName());
+        if (!userOptional.isPresent()) {
+            System.out.println("User not found for username: " + authentication.getName());
+            return new ResponseEntity<>("User not found", HttpStatus.NOT_FOUND);
+        }
+        User user = userOptional.get();
+        System.out.println("User found: " + user.getId() + " - " + user.getUsername());
+
+        Optional<Achievement> achievementOptional = achievementRepository.findById(id);
+        if (!achievementOptional.isPresent()) {
+            System.out.println("Achievement not found with ID: " + id);
+            return new ResponseEntity<>("Achievement not found", HttpStatus.NOT_FOUND);
+        }
+        System.out.println("Achievement found: " + achievementOptional.get().getTitle());
+
+        // Basic validation: check if comment text is provided and not empty
+        if (comment.getText() == null || comment.getText().trim().isEmpty()) {
+            System.out.println("Comment text is empty or null");
+            return new ResponseEntity<>("Comment text cannot be empty", HttpStatus.BAD_REQUEST);
+        }
+
+        // Create a new comment object to avoid any serialization issues with the input
+        Comment newComment = new Comment();
+        newComment.setText(comment.getText());
+        newComment.setUser(user);
+        newComment.setAchievementId(id);
+        
+        // Make sure createdAt is set even if @EnableMongoAuditing isn't working
+        LocalDateTime now = LocalDateTime.now();
+        newComment.setCreatedAt(now);
+        
+        System.out.println("About to save comment: " + newComment);
+        try {
+            Comment savedComment = commentRepository.save(newComment);
+            System.out.println("Comment saved successfully with ID: " + savedComment.getId());
+            
+            // Fetch the comment again to ensure all fields are populated correctly
+            Optional<Comment> refetchedComment = commentRepository.findById(savedComment.getId());
+            if (refetchedComment.isPresent()) {
+                System.out.println("Refetched comment: " + refetchedComment.get());
+                System.out.println("Comment createdAt: " + refetchedComment.get().getCreatedAt());
+                return new ResponseEntity<>(refetchedComment.get(), HttpStatus.CREATED);
+            } else {
+                return new ResponseEntity<>(savedComment, HttpStatus.CREATED);
+            }
+        } catch (Exception e) {
+            System.err.println("Error saving comment: " + e.getMessage());
+            e.printStackTrace();
+            return new ResponseEntity<>("Error saving comment: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+}

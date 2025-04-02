@@ -30,6 +30,11 @@ import {
   LogOut,
   ChevronDown,
   Home,
+  Medal,
+  Image,
+  DollarSign,
+  Pencil,
+  Upload,
 } from "lucide-react";
 import { logout } from "@/utils/auth";
 import { Toaster } from "sonner";
@@ -73,14 +78,19 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       icon: <BookOpen className="h-5 w-5" />,
     },
     {
-      title: "Posts",
+      title: "Achievements",
       href: "/admin/achievements",
-      icon: <FileText className="h-5 w-5" />,
+      icon: <Medal className="h-5 w-5" />,
     },
     {
       title: "Comments",
       href: "/admin/comments",
       icon: <MessageSquare className="h-5 w-5" />,
+    },
+    {
+      title: "Media",
+      href: "/admin/media",
+      icon: <Upload className="h-5 w-5" />,
     },
   ];
 
