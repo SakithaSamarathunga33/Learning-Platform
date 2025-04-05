@@ -2,17 +2,16 @@
 
 import React, { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
-import { 
-  Card, 
-  CardContent, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription 
+import Image from 'next/image';
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Heart, User, Calendar, LinkIcon, Share, MessageCircle, Send, Loader2, Image, AlertTriangle } from "lucide-react";
+import { ChevronLeft, Heart, User, Calendar, Share, MessageCircle, Send, Loader2, Trash2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
@@ -20,8 +19,6 @@ import { useRouter } from 'next/navigation';
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { formatDistanceToNow, format as dateFormat } from 'date-fns';
-import axios from 'axios';
 
 interface User {
   id: string;
@@ -52,10 +49,8 @@ interface Comment {
 }
 
 export default function AchievementDetailPage({ params }: { params: { id: string } }) {
-  // Properly unwrap params using React.use()
-  const unwrappedParams = React.use(params);
-  const achievementId = unwrappedParams.id;
-  
+  const achievementId = params.id;
+
   const [achievement, setAchievement] = useState<Achievement | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -66,26 +61,40 @@ export default function AchievementDetailPage({ params }: { params: { id: string
   const [commentsError, setCommentsError] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLikingInProgress, setIsLikingInProgress] = useState(false);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isDeletingComment, setIsDeletingComment] = useState(false);
   const router = useRouter();
-  
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     setIsAuthenticated(!!token);
-    
+
+    // Get current user info if authenticated
+    if (token) {
+      try {
+        const userString = localStorage.getItem('user');
+        if (userString) {
+          const userData = JSON.parse(userString);
+          setCurrentUserId(userData.id || null);
+        }
+      } catch (err) {
+        console.error('Error parsing user data:', err);
+      }
+    }
+
     if (!achievementId || achievementId === 'undefined' || achievementId === 'null') {
       setError('Invalid achievement ID');
       setIsLoading(false);
       setIsLoadingComments(false);
       return;
     }
-    
+
     const fetchAchievementAndComments = async () => {
       setIsLoading(true);
       setIsLoadingComments(true);
       setError('');
       setCommentsError('');
-      
+
       try {
         // Fetch achievement first
         const achievementRes = await fetch(`/api/achievements/${achievementId}`, {
@@ -103,16 +112,14 @@ export default function AchievementDetailPage({ params }: { params: { id: string
       } catch (err) {
         console.error('[FRONTEND-UI] Error fetching achievement:', err);
         const message = err instanceof Error ? err.message : 'Error loading data. Please try again later.';
-        if (!achievement) {
-          setError(message);
-        }
+        setError(message);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchAchievementAndComments();
-  }, [achievementId]); // Use unwrapped achievementId instead of params.id
+  }, [achievementId]); // Remove achievement from dependencies to prevent infinite loop
 
   const handleLike = async () => {
     if (!isAuthenticated) {
@@ -134,13 +141,13 @@ export default function AchievementDetailPage({ params }: { params: { id: string
 
     try {
       if (isLikingInProgress) return;
-      
+
       setIsLikingInProgress(true);
-      
+
       const token = localStorage.getItem('token');
-      
+
       const method = achievement.hasLiked ? 'DELETE' : 'POST';
-      
+
       const response = await fetch(`/api/achievements/${achievement.id}/like`, {
         method,
         headers: {
@@ -153,15 +160,15 @@ export default function AchievementDetailPage({ params }: { params: { id: string
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         throw new Error(
-          errorData?.error || 
-          errorData?.message || 
+          errorData?.error ||
+          errorData?.message ||
           (achievement.hasLiked ? 'Failed to unlike achievement' : 'Failed to like achievement')
         );
       }
 
       const data = await response.json();
-      
-      setAchievement(prev => 
+
+      setAchievement(prev =>
         prev ? {
           ...prev,
           likes: data.likes,
@@ -170,8 +177,8 @@ export default function AchievementDetailPage({ params }: { params: { id: string
       );
 
       toast({
-        title: achievement.hasLiked ? "Unliked!" : "Liked!",
-        description: achievement.hasLiked ? "You unliked this achievement" : "You liked this achievement",
+        title: achievement.hasLiked ? "Removed like" : "Liked!",
+        description: achievement.hasLiked ? "You removed your like from this achievement" : "You liked this achievement",
         variant: "default",
       });
     } catch (error) {
@@ -247,7 +254,7 @@ export default function AchievementDetailPage({ params }: { params: { id: string
       if (!token) {
         throw new Error('Authentication required');
       }
-      
+
       const response = await fetch(`/api/achievements/${achievement.id}/comments`, {
         method: 'POST',
         headers: {
@@ -267,16 +274,11 @@ export default function AchievementDetailPage({ params }: { params: { id: string
       // Add the new comment to the state and clear the input
       setComments(prev => [data, ...prev]);
       setNewComment('');
-      
+
       toast({
         title: "Comment posted successfully",
       });
-      
-      // Refetch comments to ensure we have the latest data from the server
-      setTimeout(() => {
-        fetchAchievementComments(achievement.id);
-      }, 500);
-      
+
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to post comment. Please try again.';
       setCommentsError(message);
@@ -294,19 +296,19 @@ export default function AchievementDetailPage({ params }: { params: { id: string
   const fetchAchievementComments = async (achievementId: string) => {
     try {
       setIsLoadingComments(true);
-      
+
       const response = await fetch(`/api/achievements/${achievementId}/comments`, {
         headers: { 'Content-Type': 'application/json' },
         cache: 'no-store'
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData?.message || 'Failed to fetch comments');
       }
-      
+
       const commentsData = await response.json();
-      
+
       // Only update state if the data is an array
       if (Array.isArray(commentsData)) {
         setComments(commentsData);
@@ -320,6 +322,51 @@ export default function AchievementDetailPage({ params }: { params: { id: string
       setCommentsError(message);
     } finally {
       setIsLoadingComments(false);
+    }
+  };
+
+  // Function to handle comment deletion
+  const handleDeleteComment = async (commentId: string) => {
+    if (!isAuthenticated || isDeletingComment) return;
+
+    try {
+      setIsDeletingComment(true);
+
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`/api/achievements/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to delete comment');
+      }
+
+      // Remove the deleted comment from the state
+      setComments(prev => prev.filter(comment => comment.id !== commentId));
+
+      toast({
+        title: "Comment deleted successfully",
+      });
+
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete comment. Please try again.';
+      setCommentsError(message);
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingComment(false);
     }
   };
 
@@ -357,11 +404,15 @@ export default function AchievementDetailPage({ params }: { params: { id: string
               <Card className="overflow-hidden shadow-lg border rounded-xl">
                 <CardHeader className="relative p-0">
                   {achievement.imageUrl ? (
-                    <img
-                      src={achievement.imageUrl}
-                      alt={achievement.title}
-                      className="w-full h-64 md:h-96 object-cover"
-                    />
+                    <div className="relative w-full h-64 md:h-96">
+                      <Image
+                        src={achievement.imageUrl}
+                        alt={achievement.title}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                      />
+                    </div>
                   ) : (
                     <div className="bg-muted h-64 md:h-96 w-full flex items-center justify-center">
                       <p className="text-muted-foreground">No image available</p>
@@ -369,7 +420,7 @@ export default function AchievementDetailPage({ params }: { params: { id: string
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
                 </CardHeader>
-                
+
                 <CardContent className="p-6">
                   <CardTitle className="text-3xl font-bold mb-4">{achievement.title}</CardTitle>
                   <p className="text-muted-foreground leading-relaxed">{achievement.description}</p>
@@ -402,9 +453,9 @@ export default function AchievementDetailPage({ params }: { params: { id: string
                          </Button>
                        </div>
                      </form>
-                  )} 
+                  )}
                   {!isAuthenticated && (
-                    <p className="text-sm text-muted-foreground mb-4"> 
+                    <p className="text-sm text-muted-foreground mb-4">
                       <Link href={`/login?redirect=${encodeURIComponent(window.location.pathname)}`} className="underline hover:text-primary">Log in</Link> to post a comment.
                     </p>
                   )}
@@ -437,6 +488,26 @@ export default function AchievementDetailPage({ params }: { params: { id: string
                                 ? `${comment.user.firstName} ${comment.user.lastName}`
                                 : comment.user?.username || 'Anonymous'}
                             </Link>
+                            {currentUserId && comment.user.id === currentUserId && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                      onClick={() => handleDeleteComment(comment.id)}
+                                      disabled={isDeletingComment}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Delete your comment</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
                           </div>
                           <p className="text-sm text-foreground/90">{comment.text}</p>
                         </div>
@@ -461,8 +532,8 @@ export default function AchievementDetailPage({ params }: { params: { id: string
                   </Avatar>
                   <div>
                     <Link href={`/profile/${achievement.user.id}`} className="font-semibold hover:underline">
-                       {achievement.user?.firstName && achievement.user?.lastName 
-                         ? `${achievement.user.firstName} ${achievement.user.lastName}` 
+                       {achievement.user?.firstName && achievement.user?.lastName
+                         ? `${achievement.user.firstName} ${achievement.user.lastName}`
                          : achievement.user?.username || 'Anonymous User'}
                     </Link>
                     <p className="text-sm text-muted-foreground">@{achievement.user.username}</p>
@@ -485,7 +556,7 @@ export default function AchievementDetailPage({ params }: { params: { id: string
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card className="shadow border rounded-xl">
                  <CardHeader>
                    <CardTitle>Actions</CardTitle>
@@ -517,8 +588,8 @@ export default function AchievementDetailPage({ params }: { params: { id: string
                    <Button variant="outline" onClick={shareAchievement} className="w-full">
                      <Share className="mr-2 h-4 w-4" /> Share
                    </Button>
-                   
-                   {/* Optional: Add Edit/Delete buttons if the current user is the author */} 
+
+                   {/* Optional: Add Edit/Delete buttons if the current user is the author */}
                    {/* Example: Check if currentUser.id === achievement.user.id */}
                  </CardContent>
                </Card>
@@ -529,4 +600,4 @@ export default function AchievementDetailPage({ params }: { params: { id: string
       </div>
     </div>
   );
-} 
+}

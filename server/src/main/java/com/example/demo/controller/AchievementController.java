@@ -39,16 +39,16 @@ public class AchievementController {
     @GetMapping
     public ResponseEntity<List<Achievement>> getAllAchievements(Authentication authentication) {
         List<Achievement> achievements = achievementRepository.findAllByOrderByCreatedAtDesc();
-        
+
         // If authenticated, mark which achievements the user has liked
         if (authentication != null) {
             String username = authentication.getName();
             Optional<User> userOptional = userRepository.findByUsername(username);
-            
+
             if (userOptional.isPresent()) {
                 User user = userOptional.get();
                 List<UserLike> userLikes = userLikeRepository.findByUserId(user.getId());
-                
+
                 for (Achievement achievement : achievements) {
                     for (UserLike userLike : userLikes) {
                         if (userLike.getAchievementId().equals(achievement.getId())) {
@@ -59,7 +59,7 @@ public class AchievementController {
                 }
             }
         }
-        
+
         return new ResponseEntity<>(achievements, HttpStatus.OK);
     }
 
@@ -90,14 +90,14 @@ public class AchievementController {
         if (!achievementOptional.isPresent()) {
             return new ResponseEntity<>("Achievement not found", HttpStatus.NOT_FOUND);
         }
-        
+
         Achievement achievement = achievementOptional.get();
-        
+
         // If user is authenticated, check if they've liked this achievement
         if (authentication != null) {
             String username = authentication.getName();
             Optional<User> userOptional = userRepository.findByUsername(username);
-            
+
             if (userOptional.isPresent()) {
                 User user = userOptional.get();
                 Optional<UserLike> userLike = userLikeRepository.findByUserIdAndAchievementId(user.getId(), id);
@@ -107,18 +107,18 @@ public class AchievementController {
             // For non-authenticated users, set hasLiked to false
             achievement.setHasLiked(false);
         }
-        
+
         return new ResponseEntity<>(achievement, HttpStatus.OK);
     }
 
     // Update an achievement
     @PutMapping("/{id}")
     public ResponseEntity<?> updateAchievement(
-            @PathVariable String id, 
-            @RequestBody Achievement achievementDetails, 
+            @PathVariable String id,
+            @RequestBody Achievement achievementDetails,
             Authentication authentication,
             @RequestParam(required = false) Boolean admin) {
-        
+
         Optional<Achievement> achievementOptional = achievementRepository.findById(id);
         if (!achievementOptional.isPresent()) {
             return new ResponseEntity<>("Achievement not found", HttpStatus.NOT_FOUND);
@@ -135,9 +135,9 @@ public class AchievementController {
         // Check if the authenticated user is the owner of the achievement OR is an admin
         boolean isAdmin = user.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-        
+
         boolean isAdminRequest = admin != null && admin && isAdmin;
-        
+
         if (!achievement.getUser().getId().equals(user.getId()) && !isAdminRequest) {
             return new ResponseEntity<>("Not authorized to update this achievement", HttpStatus.FORBIDDEN);
         }
@@ -151,10 +151,10 @@ public class AchievementController {
     // Delete an achievement
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteAchievement(
-            @PathVariable String id, 
+            @PathVariable String id,
             Authentication authentication,
             @RequestParam(required = false) Boolean admin) {
-            
+
         Optional<Achievement> achievementOptional = achievementRepository.findById(id);
         if (!achievementOptional.isPresent()) {
             return new ResponseEntity<>("Achievement not found", HttpStatus.NOT_FOUND);
@@ -171,9 +171,9 @@ public class AchievementController {
         // Check if the authenticated user is the owner of the achievement OR is an admin
         boolean isAdmin = user.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-        
+
         boolean isAdminRequest = admin != null && admin && isAdmin;
-        
+
         if (!achievement.getUser().getId().equals(user.getId()) && !isAdminRequest) {
             return new ResponseEntity<>("Not authorized to delete this achievement", HttpStatus.FORBIDDEN);
         }
@@ -181,7 +181,7 @@ public class AchievementController {
         achievementRepository.delete(achievement);
         return new ResponseEntity<>("Achievement deleted successfully", HttpStatus.OK);
     }
-    
+
     // Like an achievement
     @PostMapping("/{id}/like")
     public ResponseEntity<?> likeAchievement(@PathVariable String id, Authentication authentication) {
@@ -189,20 +189,20 @@ public class AchievementController {
         if (authentication == null) {
             return new ResponseEntity<>("Authentication required", HttpStatus.UNAUTHORIZED);
         }
-        
+
         Optional<User> userOptional = userRepository.findByUsername(authentication.getName());
         if (!userOptional.isPresent()) {
             return new ResponseEntity<>("User not found", HttpStatus.NOT_FOUND);
         }
         User user = userOptional.get();
-        
+
         Optional<Achievement> achievementOptional = achievementRepository.findById(id);
         if (!achievementOptional.isPresent()) {
             return new ResponseEntity<>("Achievement not found", HttpStatus.NOT_FOUND);
         }
-        
+
         Achievement achievement = achievementOptional.get();
-        
+
         // Check if user already liked this achievement
         Optional<UserLike> existingLike = userLikeRepository.findByUserIdAndAchievementId(user.getId(), id);
         if (existingLike.isPresent()) {
@@ -211,23 +211,23 @@ public class AchievementController {
                 "likes", achievement.getLikes()
             ), HttpStatus.OK);
         }
-        
+
         // Create a new like record
         UserLike userLike = new UserLike();
         userLike.setUserId(user.getId());
         userLike.setAchievementId(id);
         userLikeRepository.save(userLike);
-        
+
         // Update achievement likes count
         achievement.setLikes(achievement.getLikes() + 1);
         achievementRepository.save(achievement);
-        
+
         return new ResponseEntity<>(Map.of(
             "likes", achievement.getLikes(),
             "hasLiked", true
         ), HttpStatus.OK);
     }
-    
+
     // Unlike an achievement
     @DeleteMapping("/{id}/like")
     public ResponseEntity<?> unlikeAchievement(@PathVariable String id, Authentication authentication) {
@@ -235,20 +235,20 @@ public class AchievementController {
         if (authentication == null) {
             return new ResponseEntity<>("Authentication required", HttpStatus.UNAUTHORIZED);
         }
-        
+
         Optional<User> userOptional = userRepository.findByUsername(authentication.getName());
         if (!userOptional.isPresent()) {
             return new ResponseEntity<>("User not found", HttpStatus.NOT_FOUND);
         }
         User user = userOptional.get();
-        
+
         Optional<Achievement> achievementOptional = achievementRepository.findById(id);
         if (!achievementOptional.isPresent()) {
             return new ResponseEntity<>("Achievement not found", HttpStatus.NOT_FOUND);
         }
-        
+
         Achievement achievement = achievementOptional.get();
-        
+
         // Check if user has liked this achievement
         Optional<UserLike> existingLike = userLikeRepository.findByUserIdAndAchievementId(user.getId(), id);
         if (!existingLike.isPresent()) {
@@ -257,17 +257,17 @@ public class AchievementController {
                 "likes", achievement.getLikes()
             ), HttpStatus.OK);
         }
-        
+
         // Delete the like record
         userLikeRepository.delete(existingLike.get());
-        
+
         // Update achievement likes count
         // Make sure likes don't go below 0
-        if (achievement.getLikes() > 0) { 
+        if (achievement.getLikes() > 0) {
             achievement.setLikes(achievement.getLikes() - 1);
             achievementRepository.save(achievement);
         }
-        
+
         return new ResponseEntity<>(Map.of(
             "likes", achievement.getLikes(),
             "hasLiked", false
@@ -276,39 +276,77 @@ public class AchievementController {
 
     // --- Comment Endpoints --- //
 
+    // Delete a comment (only the comment owner can delete their own comment)
+    @DeleteMapping("/comments/{commentId}")
+    public ResponseEntity<?> deleteComment(
+            @PathVariable String commentId,
+            Authentication authentication) {
+
+        // Check if user is authenticated
+        if (authentication == null) {
+            return new ResponseEntity<>("Authentication required", HttpStatus.UNAUTHORIZED);
+        }
+
+        // Find the comment
+        Optional<Comment> commentOptional = commentRepository.findById(commentId);
+        if (!commentOptional.isPresent()) {
+            return new ResponseEntity<>("Comment not found", HttpStatus.NOT_FOUND);
+        }
+
+        Comment comment = commentOptional.get();
+
+        // Find the authenticated user
+        Optional<User> userOptional = userRepository.findByUsername(authentication.getName());
+        if (!userOptional.isPresent()) {
+            return new ResponseEntity<>("User not found", HttpStatus.NOT_FOUND);
+        }
+
+        User user = userOptional.get();
+
+        // Check if the authenticated user is the owner of the comment
+        if (!comment.getUser().getId().equals(user.getId())) {
+            return new ResponseEntity<>("Not authorized to delete this comment", HttpStatus.FORBIDDEN);
+        }
+
+        // Delete the comment
+        commentRepository.deleteById(commentId);
+
+        return new ResponseEntity<>(Map.of("message", "Comment deleted successfully"), HttpStatus.OK);
+    }
+
     // Get comments for a specific achievement
     @GetMapping("/{id}/comments")
     public ResponseEntity<List<Comment>> getAchievementComments(@PathVariable String id) {
         System.out.println("==== Fetching comments for achievement: " + id + " ====");
-        
+
         // Check if achievement exists (optional, but good practice)
         if (!achievementRepository.existsById(id)) {
             System.out.println("Achievement not found with ID: " + id);
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
-        
+
         try {
             // Explicitly query the database to verify comments exist
             System.out.println("Querying database for comments with achievementId: " + id);
             List<Comment> comments = commentRepository.findByAchievementIdOrderByCreatedAtDesc(id);
-            
+
             System.out.println("Found " + comments.size() + " comments in database");
-            
+
             // Log the first few comments for debugging
             if (!comments.isEmpty()) {
                 int logCount = Math.min(comments.size(), 3);
                 for (int i = 0; i < logCount; i++) {
                     Comment comment = comments.get(i);
-                    System.out.println("Comment " + (i+1) + ": ID=" + comment.getId() + 
-                                     ", Text=" + comment.getText() + 
-                                     ", User=" + (comment.getUser() != null ? 
+                    System.out.println("Comment " + (i+1) + ": ID=" + comment.getId() +
+                                     ", Text=" + comment.getText() +
+                                     ", User=" + (comment.getUser() != null ?
                                                 comment.getUser().getUsername() : "null") +
                                      ", CreatedAt=" + comment.getCreatedAt());
                 }
             } else {
                 System.out.println("No comments found in database for achievement: " + id);
             }
-            
+
             return new ResponseEntity<>(comments, HttpStatus.OK);
         } catch (Exception e) {
             System.err.println("Error fetching comments: " + e.getMessage());
@@ -350,7 +388,7 @@ public class AchievementController {
         System.out.println("Achievement found: " + achievementOptional.get().getTitle());
 
         // Basic validation: check if comment text is provided and not empty
-        if (comment.getText() == null || comment.getText().trim().isEmpty()) {
+        if (comment == null || comment.getText() == null || comment.getText().trim().isEmpty()) {
             System.out.println("Comment text is empty or null");
             return new ResponseEntity<>("Comment text cannot be empty", HttpStatus.BAD_REQUEST);
         }
@@ -360,16 +398,16 @@ public class AchievementController {
         newComment.setText(comment.getText());
         newComment.setUser(user);
         newComment.setAchievementId(id);
-        
+
         // Make sure createdAt is set even if @EnableMongoAuditing isn't working
         LocalDateTime now = LocalDateTime.now();
         newComment.setCreatedAt(now);
-        
+
         System.out.println("About to save comment: " + newComment);
         try {
             Comment savedComment = commentRepository.save(newComment);
             System.out.println("Comment saved successfully with ID: " + savedComment.getId());
-            
+
             // Fetch the comment again to ensure all fields are populated correctly
             Optional<Comment> refetchedComment = commentRepository.findById(savedComment.getId());
             if (refetchedComment.isPresent()) {

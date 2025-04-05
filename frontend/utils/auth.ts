@@ -118,15 +118,15 @@ export function isUserAdmin(): boolean {
     const userJson = localStorage.getItem('user');
     if (userJson) {
       const user = JSON.parse(userJson);
-      
+
       // Check for admin roles in user object
       if (user.roles && Array.isArray(user.roles)) {
-        const isAdmin = user.roles.some((role: string) => 
+        const isAdmin = user.roles.some((role: string) =>
           role === 'ROLE_ADMIN' || role === 'ADMIN' || role.includes('ADMIN')
         );
         return isAdmin;
       }
-      
+
       // Alternative locations in the user object
       if (user.authorities && Array.isArray(user.authorities)) {
         const isAdmin = user.authorities.some((auth: any) => {
@@ -140,25 +140,25 @@ export function isUserAdmin(): boolean {
         return isAdmin;
       }
     }
-    
+
     // If user info doesn't have roles, try to decode it from the token
     const token = localStorage.getItem('token');
     if (token) {
       const parts = token.split('.');
       if (parts.length === 3) {
         const payload = JSON.parse(atob(parts[1]));
-        
+
         // Add username to admin whitelist for development or testing
         if (payload.sub && (
-          payload.sub === 'admin' || 
-          payload.sub === 'administrator' || 
+          payload.sub === 'admin' ||
+          payload.sub === 'administrator' ||
           payload.sub.includes('admin'))
         ) {
           return true;
         }
       }
     }
-    
+
     return false;
   } catch (error) {
     console.error('Error checking admin status:', error);
@@ -169,11 +169,42 @@ export function isUserAdmin(): boolean {
 /**
  * Check if the user from the request is an admin
  */
+/**
+ * Verify a JWT token and return the decoded payload
+ */
+export async function verifyToken(token: string): Promise<any | null> {
+  try {
+    if (!token) {
+      return null;
+    }
+
+    // Parse JWT
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return null;
+    }
+
+    // Decode payload
+    const payload = JSON.parse(atob(parts[1]));
+
+    // Check if token is expired
+    const expiryTime = payload.exp * 1000; // Convert to milliseconds
+    if (Date.now() >= expiryTime) {
+      return null;
+    }
+
+    return payload;
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    return null;
+  }
+}
+
 export async function checkIsAdmin(request: NextRequest): Promise<boolean> {
   try {
     // Get token from either cookie or Authorization header
     let token = request.cookies.get('token')?.value;
-    
+
     if (!token) {
       // Try from Authorization header
       const authHeader = request.headers.get('Authorization');
@@ -181,23 +212,19 @@ export async function checkIsAdmin(request: NextRequest): Promise<boolean> {
         token = authHeader.substring(7);
       }
     }
-    
+
     if (!token) {
       return false;
     }
-    
-    // Parse JWT
-    const parts = token.split('.');
-    if (parts.length !== 3) {
+
+    const payload = await verifyToken(token);
+    if (!payload) {
       return false;
     }
-    
-    // Decode payload
-    const payload = JSON.parse(atob(parts[1]));
-    
+
     // Extract roles - handle different role formats
     let roles: string[] = [];
-    
+
     // Common roles array formats
     if (Array.isArray(payload.roles)) {
       roles = payload.roles;
@@ -208,32 +235,32 @@ export async function checkIsAdmin(request: NextRequest): Promise<boolean> {
     } else if (typeof payload.role === 'string') {
       roles = [payload.role];
     }
-    
+
     // Handle Spring Security authorities format (objects with 'authority' field)
     if (Array.isArray(payload.authorities) && payload.authorities.length > 0) {
       if (typeof payload.authorities[0] === 'object' && payload.authorities[0]?.authority) {
         roles = payload.authorities.map(auth => auth.authority);
       }
     }
-    
+
     // Add username check as a fallback method (for development/testing)
     // If the JWT doesn't contain roles but the username is 'admin', allow access
     const username = payload.sub;
     if (username && (username === 'admin' || username === 'administrator' || username.includes('admin'))) {
       return true;
     }
-    
+
     // Check for admin role in various formats
-    const isAdmin = roles.some(role => 
-      role === 'ROLE_ADMIN' || 
-      role === 'ADMIN' || 
+    const isAdmin = roles.some(role =>
+      role === 'ROLE_ADMIN' ||
+      role === 'ADMIN' ||
       role === 'admin' ||
       role.includes('ADMIN')
     );
-    
+
     return isAdmin;
   } catch (error) {
     console.error('Error in admin check:', error);
     return false;
   }
-} 
+}
