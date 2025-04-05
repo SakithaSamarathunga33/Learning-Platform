@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
-import { isUserAdmin } from '@/utils/auth';
+// import { isUserAdmin } from '@/utils/auth';
 
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -33,7 +33,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Input } from "@/components/ui/input";
+// import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +45,7 @@ interface Comment {
   user: { // Assuming user object is populated or at least has username/id
     id: string;
     name?: string; // Adjust based on what User model returns
-    username?: string; 
+    username?: string;
   };
   achievementId: string;
   createdAt: string; // ISO date string
@@ -78,7 +78,7 @@ const AdminCommentsPage = () => {
   const router = useRouter();
 
   // Group comments by achievement
-  const groupCommentsByAchievement = (commentList: Comment[]) => {
+  const groupCommentsByAchievement = useCallback((commentList: Comment[]) => {
     // Create a map to hold achievement titles
     const achievementTitlesMap: Record<string, string> = {};
     achievements.forEach(achievement => {
@@ -102,21 +102,64 @@ const AdminCommentsPage = () => {
     }));
 
     return result;
-  };
+  }, [achievements]);
+
+  // Fetch achievements without updating comment groups to avoid circular dependencies
+  const fetchAchievements = useCallback(async (silent = false) => {
+    try {
+      if (!silent) {
+        setLoadingAchievements(true);
+      }
+
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+
+      if (!token) {
+        if (!silent) toast.error("Authentication required");
+        return;
+      }
+
+      const response = await fetch('/api/achievements', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch achievements');
+      }
+
+      const data = await response.json();
+      setAchievements(Array.isArray(data) ? data : []);
+
+      // Removed the comment group update to avoid circular dependencies
+    } catch (err) {
+      console.error('Error fetching achievements:', err);
+      if (!silent) toast.error(`Failed to load achievements: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      if (!silent) {
+        setLoadingAchievements(false);
+      }
+    }
+  }, []); // Empty dependency array to break the circular dependency
 
   useEffect(() => {
     // Check if user is admin before proceeding
-    const adminStatus = isUserAdmin();
-    
+    // We don't need to check here since this is an admin-only page
+    // and Next.js middleware should handle access control
+
     // Function to fetch all comments (admin only)
     const fetchComments = async () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         // Get token from localStorage
         const token = localStorage.getItem('token');
-        
+
         if (!token) {
           router.push('/login');
           return;
@@ -133,49 +176,54 @@ const AdminCommentsPage = () => {
           credentials: 'include',
           cache: 'no-store',
         });
-        
+
         if (!response.ok) {
           const errorData = await response.json();
-          
+
           if (response.status === 401) {
             router.push('/login');
             return;
           }
-          
+
           if (response.status === 403) {
             setError('Unauthorized. Admin access required.');
             return;
           }
-          
+
           throw new Error(errorData.error || 'Failed to fetch comments');
         }
-        
+
         // Handle response
         let data: Comment[] = [];
         try {
           const text = await response.text();
-          
+
           if (text && text.trim() !== '') {
             data = JSON.parse(text);
           }
-        } catch (parseError) {
-          console.error('Failed to parse response:', parseError);
+        } catch (err) {
+          console.error('Failed to parse response:', err);
         }
-        
+
         setComments(Array.isArray(data) ? data : []);
 
-        // Also fetch achievements to get titles
-        fetchAchievements(true);
-      } catch (err: any) {
+        // We'll fetch achievements in a separate useEffect
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         console.error('Error fetching comments:', err);
-        setError(err.message || 'Failed to load comments');
+        setError(errorMessage || 'Failed to load comments');
       } finally {
         setLoading(false);
       }
     };
 
     fetchComments();
-  }, [router]);
+  }, [router]); // Removed fetchAchievements from dependencies
+
+  // Separate useEffect to fetch achievements
+  useEffect(() => {
+    fetchAchievements();
+  }, [fetchAchievements]);
 
   // Update comment groups when comments or achievements change
   useEffect(() => {
@@ -183,52 +231,7 @@ const AdminCommentsPage = () => {
       const groups = groupCommentsByAchievement(comments);
       setCommentGroups(groups);
     }
-  }, [comments, achievements]);
-
-  const fetchAchievements = async (silent = false) => {
-    try {
-      if (!silent) {
-        setLoadingAchievements(true);
-      }
-      
-      // Get token from localStorage
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        if (!silent) toast.error("Authentication required");
-        return;
-      }
-
-      const response = await fetch('/api/achievements', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        cache: 'no-store',
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch achievements');
-      }
-      
-      const data = await response.json();
-      setAchievements(Array.isArray(data) ? data : []);
-
-      // After fetching achievements, update the comment groups
-      if (comments.length > 0) {
-        const groups = groupCommentsByAchievement(comments);
-        setCommentGroups(groups);
-      }
-    } catch (err: any) {
-      console.error('Error fetching achievements:', err);
-      if (!silent) toast.error('Failed to load achievements');
-    } finally {
-      if (!silent) {
-        setLoadingAchievements(false);
-      }
-    }
-  };
+  }, [comments, achievements, groupCommentsByAchievement]);
 
   const handleDeleteComment = async (commentId: string) => {
     if (!window.confirm("Are you sure you want to delete this comment?")) {
@@ -237,7 +240,7 @@ const AdminCommentsPage = () => {
 
     try {
       setError(null);
-      
+
       // Get token from localStorage for auth
       const token = localStorage.getItem('token');
       if (!token) {
@@ -245,7 +248,7 @@ const AdminCommentsPage = () => {
         setTimeout(() => router.push('/login'), 1500);
         return;
       }
-      
+
       // Delete the comment
       const response = await fetch(`/api/admin/comments/${commentId}`, {
         method: 'DELETE',
@@ -255,36 +258,37 @@ const AdminCommentsPage = () => {
         },
         credentials: 'include',
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
-        
+
         if (response.status === 401) {
           toast.error("Your session has expired. Please log in again.");
           setTimeout(() => router.push('/login'), 1500);
           return;
         }
-        
+
         if (response.status === 403) {
           toast.error("You don't have admin privileges to delete comments.");
           return;
         }
-        
+
         throw new Error(errorData.error || 'Failed to delete comment');
       }
-      
+
       toast.success("Comment deleted successfully");
       // Update UI by removing the deleted comment
       const updatedComments = comments.filter(comment => comment.id !== commentId);
       setComments(updatedComments);
-      
+
       // Update the comment groups
       const groups = groupCommentsByAchievement(updatedComments);
       setCommentGroups(groups);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       console.error("Error deleting comment:", err);
-      toast.error(err.message || "Failed to delete comment.");
-      setError(`Failed to delete comment: ${err.message}`);
+      toast.error(errorMessage || "Failed to delete comment.");
+      setError(`Failed to delete comment: ${errorMessage}`);
     }
   };
 
@@ -302,7 +306,7 @@ const AdminCommentsPage = () => {
         toast.error("Authentication required");
         return;
       }
-      
+
       try {
         // Try to update via API
         const response = await fetch(`/api/admin/comments/${editingComment.id}`, {
@@ -313,7 +317,7 @@ const AdminCommentsPage = () => {
           },
           body: JSON.stringify({ text: editCommentText }),
         });
-        
+
         // Try to parse the response data
         let responseData;
         try {
@@ -321,30 +325,32 @@ const AdminCommentsPage = () => {
           if (responseText) {
             responseData = JSON.parse(responseText);
           }
-        } catch (parseError) {
-          // Error parsing response
+        } catch (err) {
+          // Silently handle parse error
+          console.debug('Response parse error:', err);
         }
-        
+
         if (response.ok) {
           if (responseData?.localOnly) {
             // Backend doesn't actually support updates, but we're handling it locally
-            toast.success(
-              "Comment updated in UI only", 
-              { description: "Changes will not persist after page refresh due to backend limitations." }
-            );
+            toast.success("Comment updated in UI only");
+            // Show a second toast with additional information
+            setTimeout(() => {
+              toast("Changes will not persist after page refresh due to backend limitations.");
+            }, 500);
           } else {
             toast.success("Comment updated successfully");
           }
-          
+
           const dialogShouldClose = true;
-          
+
           // Update the comment in the local state
-          const updatedComments = comments.map(c => 
+          const updatedComments = comments.map(c =>
             c.id === editingComment.id ? { ...c, text: editCommentText } : c
           );
-          
+
           setComments(updatedComments);
-          
+
           // Update the comment groups
           const groups = groupCommentsByAchievement(updatedComments);
           setCommentGroups(groups);
@@ -354,27 +360,29 @@ const AdminCommentsPage = () => {
             setEditingComment(null);
             setEditCommentText("");
           }
-          
+
           // Close the dialog programmatically
           document.getElementById('close-edit-dialog')?.click();
-          
+
           return true;
         } else {
           // Try to get error details from response
           let errorMessage = "Failed to update comment";
-          
+
           if (responseData?.error) {
             errorMessage = responseData.error;
           }
-          
+
           toast.error(`Error: ${errorMessage}`);
           return false;
         }
-      } catch (apiError) {
+      } catch (err) {
+        console.error('API error:', err);
         toast.error("Network error. Please check your connection and try again.");
         return false;
       }
     } catch (err) {
+      console.error('General error:', err);
       toast.error("Failed to update comment");
       return false;
     }
@@ -407,29 +415,30 @@ const AdminCommentsPage = () => {
       }
 
       const newComment = await response.json();
-      
+
       toast.success("Comment added successfully");
-      
+
       // Add the new comment to the local state
       const updatedComments = [newComment, ...comments];
       setComments(updatedComments);
-      
+
       // Update the comment groups
       const groups = groupCommentsByAchievement(updatedComments);
       setCommentGroups(groups);
-      
+
       // Ensure the group for this new comment is open
       setOpenGroups({
         ...openGroups,
         [selectedAchievement]: true
       });
-      
+
       // Reset form
       setSelectedAchievement("");
       setCommentText("");
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       console.error("Error adding comment:", err);
-      toast.error(err.message || "Failed to add comment");
+      toast.error(errorMessage || "Failed to add comment");
     }
   };
 
@@ -637,4 +646,4 @@ const AdminCommentsPage = () => {
   );
 };
 
-export default AdminCommentsPage; 
+export default AdminCommentsPage;
