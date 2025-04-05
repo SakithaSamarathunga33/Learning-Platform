@@ -385,4 +385,49 @@ public class AchievementController {
             return new ResponseEntity<>("Error saving comment: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    // Delete a comment on an achievement
+    @DeleteMapping("delete/{achievementId}/comments/{commentId}")
+    public ResponseEntity<?> deleteComment(
+            @PathVariable String achievementId,
+            @PathVariable String commentId,
+            Authentication authentication,
+            @RequestParam(required = false) Boolean admin) {
+
+        // Check if user is authenticated
+        if (authentication == null) {
+            return new ResponseEntity<>("Authentication required", HttpStatus.UNAUTHORIZED);
+        }
+
+        Optional<User> userOptional = userRepository.findByUsername(authentication.getName());
+        if (!userOptional.isPresent()) {
+            return new ResponseEntity<>("User not found", HttpStatus.NOT_FOUND);
+        }
+        User user = userOptional.get();
+
+        // Fetch the comment
+        Optional<Comment> commentOptional = commentRepository.findById(commentId);
+        if (!commentOptional.isPresent()) {
+            return new ResponseEntity<>("Comment not found", HttpStatus.NOT_FOUND);
+        }
+        Comment comment = commentOptional.get();
+
+        // Verify that the comment belongs to the specified achievement
+        if (!comment.getAchievementId().equals(achievementId)) {
+            return new ResponseEntity<>("Comment does not belong to the specified achievement", HttpStatus.BAD_REQUEST);
+        }
+
+        // Check if the user is the owner of the comment or an admin
+        boolean isAdmin = user.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        boolean isAdminRequest = admin != null && admin && isAdmin;
+        if (!comment.getUser().getId().equals(user.getId()) && !isAdminRequest) {
+            return new ResponseEntity<>("Not authorized to delete this comment", HttpStatus.FORBIDDEN);
+        }
+
+        // Delete the comment
+        commentRepository.delete(comment);
+        return new ResponseEntity<>("Comment deleted successfully", HttpStatus.OK);
+    }
+
 }
