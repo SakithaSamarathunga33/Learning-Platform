@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Heart, User, Calendar, LinkIcon, Share, MessageCircle, Send, Loader2, Image, AlertTriangle } from "lucide-react";
+import { ChevronLeft, Heart, User, Calendar, LinkIcon, Share, MessageCircle, Send, Loader2, Image, AlertTriangle, Trash } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
@@ -66,9 +66,14 @@ export default function AchievementDetailPage({ params }: { params: { id: string
   const [commentsError, setCommentsError] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLikingInProgress, setIsLikingInProgress] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   const router = useRouter();
   
+  // Get current user ID from localStorage (if available)
+  const currentUserString = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+  const currentUser = currentUserString ? JSON.parse(currentUserString) : null;
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     setIsAuthenticated(!!token);
@@ -323,6 +328,49 @@ export default function AchievementDetailPage({ params }: { params: { id: string
     }
   };
 
+  const handleDeleteComment = async (commentId: string) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to delete comments",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setDeletingCommentId(commentId);
+    
+    try {
+      const response = await fetch(`${apiUrl}/api/achievements/delete/${achievement?.id}/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData?.message || "Failed to delete comment");
+      }
+      
+      // Remove the comment from state
+      setComments(prev => prev.filter(comment => comment.id !== commentId));
+      toast({
+        title: "Comment deleted successfully"
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete comment",
+        variant: "destructive"
+      });
+    } finally {
+      setDeletingCommentId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen pb-16 bg-gradient-to-br from-background to-muted/30">
       <div className="container mx-auto px-4 pt-8">
@@ -430,13 +478,28 @@ export default function AchievementDetailPage({ params }: { params: { id: string
                              {(comment.user?.firstName || comment.user?.username || 'U').charAt(0).toUpperCase()}
                            </AvatarFallback>
                         </Avatar>
-                        <div className="flex-1 bg-muted/50 rounded-lg p-3">
+                        <div className="flex-1 bg-muted/50 rounded-lg p-3 relative">
                           <div className="flex items-center justify-between mb-1">
                             <Link href={`/profile/${comment.user.id}`} className="font-semibold text-sm hover:underline">
                               {comment.user?.firstName && comment.user?.lastName
                                 ? `${comment.user.firstName} ${comment.user.lastName}`
                                 : comment.user?.username || 'Anonymous'}
                             </Link>
+                            {/* {isAuthenticated && currentUserId === comment.user?.id && ( */}
+                            {isAuthenticated && currentUser.id === comment.user?.id && (
+                              <Button 
+                                variant="destructive" 
+                                size="icon" 
+                                onClick={() => handleDeleteComment(comment.id)}
+                                disabled={deletingCommentId === comment.id}
+                              >
+                                {deletingCommentId === comment.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash className="h-4 w-4" />
+                                )}
+                              </Button>
+                            )}
                           </div>
                           <p className="text-sm text-foreground/90">{comment.text}</p>
                         </div>
@@ -518,8 +581,7 @@ export default function AchievementDetailPage({ params }: { params: { id: string
                      <Share className="mr-2 h-4 w-4" /> Share
                    </Button>
                    
-                   {/* Optional: Add Edit/Delete buttons if the current user is the author */} 
-                   {/* Example: Check if currentUser.id === achievement.user.id */}
+                   {/* Optional: Add Edit/Delete buttons if the current user is the author of the achievement */}
                  </CardContent>
                </Card>
 
@@ -529,4 +591,4 @@ export default function AchievementDetailPage({ params }: { params: { id: string
       </div>
     </div>
   );
-} 
+}
