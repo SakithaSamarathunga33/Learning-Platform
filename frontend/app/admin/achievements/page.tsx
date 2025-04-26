@@ -146,10 +146,12 @@ export default function AchievementsAdminPage() {
       const headers: HeadersInit = {};
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+        // Add admin header
+        headers['X-Admin-Access'] = 'true';
       }
 
-      // Direct API call without requiring authentication
-      const response = await fetch(`${apiUrl}/api/achievements`, {
+      // Add admin=true parameter to get all achievements including those from disabled users
+      const response = await fetch(`${apiUrl}/api/achievements?admin=true`, {
         headers,
         cache: 'no-store'
       });
