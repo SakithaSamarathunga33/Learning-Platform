@@ -31,6 +31,11 @@ public class CorsConfig {
         
         // Allow all headers
         config.addAllowedHeader("*");
+        config.addAllowedHeader("Authorization");
+        config.addAllowedHeader("Content-Type");
+        
+        // Expose headers to the frontend
+        config.addExposedHeader("*");
         
         // Allow credentials
         config.setAllowCredentials(true);

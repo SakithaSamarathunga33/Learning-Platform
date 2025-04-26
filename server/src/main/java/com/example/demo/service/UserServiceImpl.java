@@ -4,6 +4,7 @@ import com.example.demo.exception.ResourceNotFoundException;
 import com.example.demo.model.User;
 import com.example.demo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,6 +19,9 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     @Override
     public List<User> getAllUsers() {
         return userRepository.findAll();
@@ -30,6 +34,20 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User createUser(User user) {
+        // Encrypt the password before saving
+        if (user.getPassword() != null && !user.getPassword().isEmpty()) {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+        }
+        
+        // Set default values if not provided
+        if (user.getRoles() == null || user.getRoles().isEmpty()) {
+            user.setRoles(Set.of("ROLE_USER"));
+        }
+        
+        if (user.getEnabled() == null) {
+            user.setEnabled(true);
+        }
+        
         return userRepository.save(user);
     }
 
@@ -49,6 +67,16 @@ public class UserServiceImpl implements UserService {
                 existingUser.setPicture(userDetails.getPicture());
             }
             
+            // Update enabled status if provided
+            if (userDetails.getEnabled() != null) {
+                existingUser.setEnabled(userDetails.getEnabled());
+            }
+            
+            // Update email if provided and user is not a Google user
+            if (userDetails.getEmail() != null && !"google".equals(existingUser.getProvider())) {
+                existingUser.setEmail(userDetails.getEmail());
+            }
+            
             // Update roles if provided
             if (userDetails.getRoles() != null) {
                 existingUser.setRoles(userDetails.getRoles());
@@ -59,14 +87,14 @@ public class UserServiceImpl implements UserService {
                 return userRepository.save(existingUser);
             }
             
-            // For regular users, allow updating all fields except email
+            // For regular users, allow updating all fields
             if (userDetails.getUsername() != null) {
                 existingUser.setUsername(userDetails.getUsername());
             }
             
             // Only update password if it's provided and not empty
             if (userDetails.getPassword() != null && !userDetails.getPassword().isEmpty()) {
-                existingUser.setPassword(userDetails.getPassword());
+                existingUser.setPassword(passwordEncoder.encode(userDetails.getPassword()));
             }
             
             return userRepository.save(existingUser);
