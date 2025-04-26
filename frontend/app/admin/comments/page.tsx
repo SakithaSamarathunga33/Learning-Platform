@@ -388,19 +388,30 @@ const AdminCommentsPage = () => {
     }
   };
 
+  const [commentError, setCommentError] = useState<string | null>(null);
+
   const handleAddComment = async () => {
+    // Validation: Ensure comment text is not empty or meaningless
     if (!selectedAchievement || !commentText.trim()) {
       toast.error("Please select an achievement and enter comment text");
       return;
     }
-
+  
+    // Additional Validation: Check if the comment text is too short or meaningless (e.g., only spaces)
+    if (commentText.trim().length < 3) {
+      setCommentError("Your comment is too short. Please provide more detail.");
+      return;
+    } else {
+      setCommentError(null); // Clear error if comment is valid
+    }
+  
     try {
       const token = localStorage.getItem('token');
       if (!token) {
         toast.error("Authentication required");
         return;
       }
-
+  
       const response = await fetch(`/api/achievements/${selectedAchievement}/comments`, {
         method: 'POST',
         headers: {
@@ -409,29 +420,29 @@ const AdminCommentsPage = () => {
         },
         body: JSON.stringify({ text: commentText }),
       });
-
+  
       if (!response.ok) {
         throw new Error('Failed to add comment');
       }
-
+  
       const newComment = await response.json();
-
+  
       toast.success("Comment added successfully");
-
+  
       // Add the new comment to the local state
       const updatedComments = [newComment, ...comments];
       setComments(updatedComments);
-
+  
       // Update the comment groups
       const groups = groupCommentsByAchievement(updatedComments);
       setCommentGroups(groups);
-
+  
       // Ensure the group for this new comment is open
       setOpenGroups({
         ...openGroups,
         [selectedAchievement]: true
       });
-
+  
       // Reset form
       setSelectedAchievement("");
       setCommentText("");
@@ -441,6 +452,7 @@ const AdminCommentsPage = () => {
       toast.error(errorMessage || "Failed to add comment");
     }
   };
+  
 
   const toggleGroup = (achievementId: string) => {
     setOpenGroups({
@@ -504,6 +516,8 @@ const AdminCommentsPage = () => {
                   onChange={(e) => setCommentText(e.target.value)}
                   placeholder="Enter your comment..."
                 />
+                {/* Display the error message under the comment field if it's too short */}
+              {commentError && <p className="text-red-500 text-sm mt-2">{commentError}</p>}
               </div>
             </div>
             <DialogFooter>
