@@ -121,8 +121,12 @@ export default function FeedPage() {
 
         const data = await response.json();
         console.log(`Received ${data.length} achievements`);
-        setAchievements(data);
-        setFilteredAchievements(data); // Initialize filtered achievements with all achievements
+        
+        // Filter out any achievements with null/undefined user to prevent errors
+        const validAchievements = data.filter(achievement => achievement && achievement.user);
+        
+        setAchievements(validAchievements);
+        setFilteredAchievements(validAchievements); // Initialize filtered achievements with all achievements
       } catch (err) {
         console.error('Error fetching achievements:', err);
         setError('Error loading achievements. Please try again later.');
@@ -147,7 +151,7 @@ export default function FeedPage() {
         achievement => 
           achievement.title.toLowerCase().includes(searchTermLower) ||
           achievement.description.toLowerCase().includes(searchTermLower) ||
-          achievement.user.username.toLowerCase().includes(searchTermLower)
+          (achievement.user?.username?.toLowerCase() || '').includes(searchTermLower)
       );
     }
     
@@ -158,7 +162,7 @@ export default function FeedPage() {
     
     // Apply mine only filter
     if (showMineOnly && currentUserId) {
-      result = result.filter(achievement => achievement.user.id === currentUserId);
+      result = result.filter(achievement => achievement.user && achievement.user.id === currentUserId);
     }
     
     // Apply sorting
@@ -430,13 +434,15 @@ export default function FeedPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredAchievements.map((achievement) => (
-              <AchievementCard
-                key={achievement.id}
-                achievement={achievement}
-                onLike={() => handleLike(achievement)}
-                isLoading={!!likingInProgress[achievement.id]}
-                isAuthenticated={isAuthenticated}
-              />
+              achievement && achievement.user ? (
+                <AchievementCard
+                  key={achievement.id}
+                  achievement={achievement}
+                  onLike={() => handleLike(achievement)}
+                  isLoading={!!likingInProgress[achievement.id]}
+                  isAuthenticated={isAuthenticated}
+                />
+              ) : null
             ))}
           </div>
         )}

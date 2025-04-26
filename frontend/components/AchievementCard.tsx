@@ -94,7 +94,7 @@ export default function AchievementCard({
               </span>
             )}
           </div>
-          <Link href={`/profile/${achievement.user.id}`} className="hover:underline">
+          <Link href={`/profile/${achievement.user?.id || 'unknown'}`} className="hover:underline">
             <span className="text-sm font-medium">
               {achievement.user?.firstName && achievement.user?.lastName 
                 ? `${achievement.user.firstName} ${achievement.user.lastName}` 
