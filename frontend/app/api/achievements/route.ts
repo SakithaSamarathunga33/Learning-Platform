@@ -6,17 +6,35 @@ export async function GET(request: NextRequest) {
     // Get the authorization header from the incoming request
     const authHeader = request.headers.get('Authorization');
     
+    // Get admin header if present
+    const adminHeader = request.headers.get('X-Admin-Access');
+    
+    // Get the URL's search params
+    const { searchParams } = new URL(request.url);
+    const admin = searchParams.get('admin');
+    
     // Set up headers
     const headers: HeadersInit = {};
     if (authHeader) {
       headers['Authorization'] = authHeader;
     }
     
+    // Forward X-Admin-Access header if present
+    if (adminHeader) {
+      headers['X-Admin-Access'] = adminHeader;
+    }
+    
     // Get the API URL from env or use default
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
     
+    // Build the URL with query parameters
+    let url = `${apiUrl}/api/achievements`;
+    if (admin) {
+      url += `?admin=${admin}`;
+    }
+    
     // Forward to the backend API
-    const response = await fetch(`${apiUrl}/api/achievements`, {
+    const response = await fetch(url, {
       headers,
       cache: 'no-store'
     });
