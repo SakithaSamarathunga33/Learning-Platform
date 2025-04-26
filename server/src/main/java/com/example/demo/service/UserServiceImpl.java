@@ -44,9 +44,8 @@ public class UserServiceImpl implements UserService {
             user.setRoles(Set.of("ROLE_USER"));
         }
         
-        if (user.getEnabled() == null) {
-            user.setEnabled(true);
-        }
+        // Enable user by default
+        user.setEnabled(true);
         
         return userRepository.save(user);
     }
@@ -67,10 +66,8 @@ public class UserServiceImpl implements UserService {
                 existingUser.setPicture(userDetails.getPicture());
             }
             
-            // Update enabled status if provided
-            if (userDetails.getEnabled() != null) {
-                existingUser.setEnabled(userDetails.getEnabled());
-            }
+            // Update enabled status
+            existingUser.setEnabled(userDetails.isEnabled());
             
             // Update email if provided and user is not a Google user
             if (userDetails.getEmail() != null && !"google".equals(existingUser.getProvider())) {

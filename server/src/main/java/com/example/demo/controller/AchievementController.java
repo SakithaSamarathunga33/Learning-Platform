@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/achievements")
@@ -37,8 +38,22 @@ public class AchievementController {
 
     // Get all achievements (feed) - public endpoint, no authentication required
     @GetMapping
-    public ResponseEntity<List<Achievement>> getAllAchievements(Authentication authentication) {
+    public ResponseEntity<List<Achievement>> getAllAchievements(
+            Authentication authentication,
+            @RequestParam(required = false) Boolean admin,
+            @RequestHeader(value = "X-Admin-Access", required = false) String adminAccess) {
+        
         List<Achievement> achievements = achievementRepository.findAllByOrderByCreatedAtDesc();
+        
+        // Only filter out disabled users' achievements for non-admin requests
+        boolean isAdminRequest = (admin != null && admin) || "true".equals(adminAccess);
+        
+        if (!isAdminRequest) {
+            // Filter out achievements from disabled users for regular users
+            achievements = achievements.stream()
+                .filter(achievement -> achievement.getUser() != null && achievement.getUser().isEnabled())
+                .collect(Collectors.toList());
+        }
 
         // If authenticated, mark which achievements the user has liked
         if (authentication != null) {
