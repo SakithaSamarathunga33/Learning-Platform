@@ -5,8 +5,11 @@ import com.example.demo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -88,5 +91,129 @@ public class UserServiceImpl implements UserService {
     @Override
     public User findByEmail(String email) {
         return userRepository.findByEmail(email).orElse(null);
+    }
+    
+    @Override
+    public User followUser(String userId, String userToFollowId) {
+        if (userId.equals(userToFollowId)) {
+            return null; // Can't follow yourself
+        }
+        
+        Optional<User> currentUserOpt = userRepository.findById(userId);
+        Optional<User> userToFollowOpt = userRepository.findById(userToFollowId);
+        
+        if (currentUserOpt.isPresent() && userToFollowOpt.isPresent()) {
+            User currentUser = currentUserOpt.get();
+            User userToFollow = userToFollowOpt.get();
+            
+            // Add to current user's following list
+            Set<String> following = currentUser.getFollowing();
+            if (following == null) {
+                following = new HashSet<>();
+            }
+            following.add(userToFollowId);
+            currentUser.setFollowing(following);
+            
+            // Add to target user's followers list
+            Set<String> followers = userToFollow.getFollowers();
+            if (followers == null) {
+                followers = new HashSet<>();
+            }
+            followers.add(userId);
+            userToFollow.setFollowers(followers);
+            
+            // Save both users
+            userRepository.save(userToFollow);
+            return userRepository.save(currentUser);
+        }
+        
+        return null;
+    }
+    
+    @Override
+    public User unfollowUser(String userId, String userToUnfollowId) {
+        Optional<User> currentUserOpt = userRepository.findById(userId);
+        Optional<User> userToUnfollowOpt = userRepository.findById(userToUnfollowId);
+        
+        if (currentUserOpt.isPresent() && userToUnfollowOpt.isPresent()) {
+            User currentUser = currentUserOpt.get();
+            User userToUnfollow = userToUnfollowOpt.get();
+            
+            // Remove from current user's following list
+            Set<String> following = currentUser.getFollowing();
+            if (following != null) {
+                following.remove(userToUnfollowId);
+                currentUser.setFollowing(following);
+            }
+            
+            // Remove from target user's followers list
+            Set<String> followers = userToUnfollow.getFollowers();
+            if (followers != null) {
+                followers.remove(userId);
+                userToUnfollow.setFollowers(followers);
+            }
+            
+            // Save both users
+            userRepository.save(userToUnfollow);
+            return userRepository.save(currentUser);
+        }
+        
+        return null;
+    }
+    
+    @Override
+    public Set<User> getUserFollowers(String userId) {
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            Set<String> followerIds = user.getFollowers();
+            if (followerIds != null && !followerIds.isEmpty()) {
+                return followerIds.stream()
+                    .map(id -> userRepository.findById(id).orElse(null))
+                    .filter(follower -> follower != null)
+                    .collect(Collectors.toSet());
+            }
+        }
+        return new HashSet<>();
+    }
+    
+    @Override
+    public Set<User> getUserFollowing(String userId) {
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            Set<String> followingIds = user.getFollowing();
+            if (followingIds != null && !followingIds.isEmpty()) {
+                return followingIds.stream()
+                    .map(id -> userRepository.findById(id).orElse(null))
+                    .filter(following -> following != null)
+                    .collect(Collectors.toSet());
+            }
+        }
+        return new HashSet<>();
+    }
+    
+    @Override
+    public boolean isFollowing(String userId, String targetUserId) {
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            Set<String> following = user.getFollowing();
+            return following != null && following.contains(targetUserId);
+        }
+        return false;
+    }
+    
+    @Override
+    public List<User> searchUsersByUsername(String searchQuery) {
+        // Convert to lowercase for case-insensitive search
+        String lowerCaseQuery = searchQuery.toLowerCase();
+        
+        // Get all users and filter by username containing the search query
+        return userRepository.findAll().stream()
+            .filter(user -> user.getUsername() != null && 
+                           user.getUsername().toLowerCase().contains(lowerCaseQuery))
+            .limit(10) // Limit results to 10 users
+            .collect(Collectors.toList());
     }
 } 

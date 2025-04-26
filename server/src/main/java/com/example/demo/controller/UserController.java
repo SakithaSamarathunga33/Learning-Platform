@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/users")
@@ -22,7 +24,11 @@ public class UserController {
     private UserService userService;
 
     @GetMapping
-    public List<User> getAllUsers() {
+    public List<User> getAllUsers(@RequestParam(required = false) String search) {
+        if (search != null && !search.trim().isEmpty()) {
+            logger.info("Searching users with query: {}", search);
+            return userService.searchUsersByUsername(search);
+        }
         return userService.getAllUsers();
     }
 
@@ -108,6 +114,83 @@ public class UserController {
             logger.error("Error updating profile picture for user ID: {}", id, e);
             return ResponseEntity.internalServerError()
                 .body("Error updating profile picture: " + e.getMessage());
+        }
+    }
+    
+    @PostMapping("/{id}/follow/{targetId}")
+    public ResponseEntity<?> followUser(@PathVariable String id, @PathVariable String targetId) {
+        try {
+            if (id.equals(targetId)) {
+                return ResponseEntity.badRequest().body("Users cannot follow themselves");
+            }
+            
+            User user = userService.followUser(id, targetId);
+            if (user == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            return ResponseEntity.ok().body(Map.of(
+                "message", "Successfully followed user",
+                "user", user
+            ));
+        } catch (Exception e) {
+            logger.error("Error following user: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                .body("Error following user: " + e.getMessage());
+        }
+    }
+    
+    @PostMapping("/{id}/unfollow/{targetId}")
+    public ResponseEntity<?> unfollowUser(@PathVariable String id, @PathVariable String targetId) {
+        try {
+            User user = userService.unfollowUser(id, targetId);
+            if (user == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            return ResponseEntity.ok().body(Map.of(
+                "message", "Successfully unfollowed user",
+                "user", user
+            ));
+        } catch (Exception e) {
+            logger.error("Error unfollowing user: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                .body("Error unfollowing user: " + e.getMessage());
+        }
+    }
+    
+    @GetMapping("/{id}/followers")
+    public ResponseEntity<Set<User>> getUserFollowers(@PathVariable String id) {
+        try {
+            Set<User> followers = userService.getUserFollowers(id);
+            return ResponseEntity.ok(followers);
+        } catch (Exception e) {
+            logger.error("Error getting user followers: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
+    @GetMapping("/{id}/following")
+    public ResponseEntity<Set<User>> getUserFollowing(@PathVariable String id) {
+        try {
+            Set<User> following = userService.getUserFollowing(id);
+            return ResponseEntity.ok(following);
+        } catch (Exception e) {
+            logger.error("Error getting user following: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
+    @GetMapping("/{id}/is-following/{targetId}")
+    public ResponseEntity<Map<String, Boolean>> checkIfFollowing(
+            @PathVariable String id, 
+            @PathVariable String targetId) {
+        try {
+            boolean isFollowing = userService.isFollowing(id, targetId);
+            return ResponseEntity.ok(Map.of("isFollowing", isFollowing));
+        } catch (Exception e) {
+            logger.error("Error checking following status: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
         }
     }
 }
