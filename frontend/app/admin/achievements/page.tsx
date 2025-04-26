@@ -146,12 +146,12 @@ export default function AchievementsAdminPage() {
       const headers: HeadersInit = {};
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
-        // Add admin header
+        // Add admin header now that CORS is configured to allow it
         headers['X-Admin-Access'] = 'true';
       }
 
-      // Add admin=true parameter to get all achievements including those from disabled users
-      const response = await fetch(`${apiUrl}/api/achievements?admin=true`, {
+      // Use Next.js API proxy instead of direct backend call to avoid CORS issues
+      const response = await fetch(`/api/achievements?admin=true`, {
         headers,
         cache: 'no-store'
       });

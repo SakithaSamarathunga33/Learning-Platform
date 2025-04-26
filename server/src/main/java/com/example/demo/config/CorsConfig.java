@@ -33,6 +33,7 @@ public class CorsConfig {
         config.addAllowedHeader("*");
         config.addAllowedHeader("Authorization");
         config.addAllowedHeader("Content-Type");
+        config.addAllowedHeader("X-Admin-Access");
         
         // Expose headers to the frontend
         config.addExposedHeader("*");
