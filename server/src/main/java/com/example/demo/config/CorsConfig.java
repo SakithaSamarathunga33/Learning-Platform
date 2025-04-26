@@ -19,6 +19,8 @@ public class CorsConfig {
         config.setAllowedOrigins(Arrays.asList(
             "http://localhost:3000",
             "http://localhost:3030",
+            "http://localhost:3001", // Add additional local development ports
+            "http://localhost:8080",
             "https://accounts.google.com"
         ));
         

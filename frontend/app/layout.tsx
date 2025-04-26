@@ -5,6 +5,7 @@ import { Inter } from 'next/font/google';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { ThemeProvider } from '@/app/providers/ThemeProvider';
+import { MessagesProvider } from '@/context/MessagesContext';
 import { usePathname } from 'next/navigation';
 import { Toaster } from '@/components/ui/toaster';
 
@@ -22,10 +23,12 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} flex flex-col min-h-screen`}>
         <ThemeProvider>
-          {!isAdminRoute && <Navbar />}
-          <main className="flex-grow">{children}</main>
-          {!isAdminRoute && <Footer />}
-          <Toaster />
+          <MessagesProvider>
+            {!isAdminRoute && <Navbar />}
+            <main className="flex-grow">{children}</main>
+            {!isAdminRoute && <Footer />}
+            <Toaster />
+          </MessagesProvider>
         </ThemeProvider>
       </body>
     </html>

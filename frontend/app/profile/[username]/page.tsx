@@ -11,7 +11,8 @@ import {
   MapPin,
   Link as LinkIcon,
   Briefcase,
-  Users
+  Users,
+  MessageSquare
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import FollowButton from '@/components/user/FollowButton';
 import FollowersModal from '@/components/user/FollowersModal';
+import MessageButton from '@/components/messages/MessageButton';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import ChatWindow from '@/components/messages/ChatWindow';
+import { FaUserPlus, FaUserCheck, FaEnvelope } from 'react-icons/fa';
 
 interface User {
   id: string;
@@ -46,6 +51,7 @@ export default function UserProfilePage({ params }: { params: { username: string
   const [error, setError] = useState('');
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [followersModalTab, setFollowersModalTab] = useState<'followers' | 'following'>('followers');
+  const [showChatDialog, setShowChatDialog] = useState(false);
   const router = useRouter();
   
   // Get username directly from params
@@ -139,6 +145,11 @@ export default function UserProfilePage({ params }: { params: { username: string
     setShowFollowersModal(true);
   };
   
+  const openChatDialog = () => {
+    if (!currentUser || !profile) return;
+    setShowChatDialog(true);
+  };
+  
   if (isLoading) {
     return (
       <div className="container max-w-4xl mx-auto py-6 px-4">
@@ -220,12 +231,21 @@ export default function UserProfilePage({ params }: { params: { username: string
         
         <div className="w-full md:w-auto mt-2 md:mt-0">
           {currentUser && currentUser.id !== profile.id && (
-            <FollowButton 
-              targetUserId={profile.id}
-              variant="default"
-              size="default"
-              onFollowChange={handleFollowChange}
-            />
+            <div className="flex flex-wrap gap-2">
+              <FollowButton 
+                targetUserId={profile.id}
+                variant="default"
+                size="default"
+                onFollowChange={handleFollowChange}
+              />
+              <MessageButton
+                targetUserId={profile.id}
+                username={profile.username}
+                variant="outline"
+                size="default"
+                onClick={openChatDialog}
+              />
+            </div>
           )}
         </div>
       </div>
@@ -330,6 +350,17 @@ export default function UserProfilePage({ params }: { params: { username: string
             }
           }}
         />
+      )}
+      
+      {profile && currentUser && currentUser.id !== profile.id && (
+        <Dialog open={showChatDialog} onOpenChange={setShowChatDialog}>
+          <DialogContent className="sm:max-w-[600px] p-0">
+            <ChatWindow 
+              recipient={profile} 
+              onClose={() => setShowChatDialog(false)} 
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

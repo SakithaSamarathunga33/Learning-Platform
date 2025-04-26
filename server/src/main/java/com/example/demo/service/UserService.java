@@ -18,4 +18,6 @@ public interface UserService {
     Set<User> getUserFollowing(String userId);
     boolean isFollowing(String userId, String targetUserId);
     List<User> searchUsersByUsername(String searchQuery);
+    User findUserByUsername(String username);
+    User findUserByEmail(String email);
 }
