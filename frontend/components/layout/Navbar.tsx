@@ -8,10 +8,12 @@ import { useTheme } from '@/app/providers/ThemeProvider';
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
-import { BookOpen, Search, Menu, X, Sun, Moon, Loader2 } from "lucide-react";
+import { BookOpen, Search, Menu, X, Sun, Moon, Loader2, MessageSquare, Bell } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useDebounce } from '@/hooks/useDebounce';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
+import axios from 'axios';
+import { useMessages } from '@/context/MessagesContext';
 
 interface User {
   id: string;
@@ -60,6 +62,8 @@ export default function Navbar() {
   
   // Close search results when clicking outside
   useOnClickOutside(searchResultsRef, () => setShowResults(false));
+
+  const { unreadCount } = useMessages();
 
   // Function to update user data
   const updateUserData = () => {
@@ -348,10 +352,23 @@ export default function Navbar() {
                             {result.username.substring(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        <div>
+                        <div className="flex-1">
                           <p className="font-medium">{result.name || result.username}</p>
                           <p className="text-xs text-muted-foreground">@{result.username}</p>
                         </div>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            router.push(`/messages?user=${result.username}`);
+                          }}
+                          aria-label={`Message ${result.name || result.username}`}
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                        </Button>
                       </Link>
                     ))}
                   </div>
@@ -388,6 +405,20 @@ export default function Navbar() {
                 )}
           </Button>
 
+          {/* Messages Button with Notification */}
+          {user && (
+            <Link href="/messages" className="relative">
+              <Button variant="ghost" size="icon" className="relative">
+                <MessageSquare className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </Button>
+            </Link>
+          )}
+
           {/* Auth Buttons or User Menu */}
             {user ? (
             <div className="relative">
@@ -410,6 +441,16 @@ export default function Navbar() {
                     className="block px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
                     >
                       Your Profile
+                    </Link>
+                    <Link
+                      href="/messages"
+                      onClick={() => setIsOpen(false)}
+                    className="block px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <div className="flex items-center">
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Messages
+                      </div>
                     </Link>
                     {user?.roles?.includes('ROLE_ADMIN') && (
                       <Link
@@ -501,10 +542,23 @@ export default function Navbar() {
                                   {result.username.substring(0, 2).toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
-                              <div>
+                              <div className="flex-1">
                                 <p className="font-medium">{result.name || result.username}</p>
                                 <p className="text-xs text-muted-foreground">@{result.username}</p>
                               </div>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  router.push(`/messages?user=${result.username}`);
+                                }}
+                                aria-label={`Message ${result.name || result.username}`}
+                              >
+                                <MessageSquare className="h-4 w-4" />
+                              </Button>
                             </Link>
                           ))}
                         </div>
@@ -548,6 +602,9 @@ export default function Navbar() {
                       </div>
                       <Button variant="outline" asChild className="w-full">
                         <Link href="/profile">Your Profile</Link>
+                      </Button>
+                      <Button variant="outline" asChild className="w-full">
+                        <Link href="/messages">Messages</Link>
                       </Button>
                       {user?.roles?.includes('ROLE_ADMIN') && (
                         <Button variant="outline" asChild className="w-full">
@@ -631,10 +688,23 @@ export default function Navbar() {
                             {result.username.substring(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        <div>
+                        <div className="flex-1">
                           <p className="font-medium">{result.name || result.username}</p>
                           <p className="text-xs text-muted-foreground">@{result.username}</p>
                         </div>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            router.push(`/messages?user=${result.username}`);
+                          }}
+                          aria-label={`Message ${result.name || result.username}`}
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                        </Button>
                       </Link>
                     ))}
                   </div>
