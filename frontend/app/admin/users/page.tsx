@@ -113,6 +113,26 @@ export default function UsersPage() {
     description: string;
   } | null>(null);
 
+  // Add state for create user dialog
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    username: '',
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    role: 'User'
+  });
+  
+  // Add state for form validation errors
+  const [formErrors, setFormErrors] = useState({
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    name: ''
+  });
+
   // Add pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const usersPerPage = 10;
@@ -398,6 +418,219 @@ export default function UsersPage() {
     setCurrentPage(pageNumber);
   };
 
+  // Validate a single field
+  const validateField = (name: string, value: string) => {
+    let error = '';
+    
+    switch (name) {
+      case 'username':
+        if (!value.trim()) {
+          error = 'Username is required';
+        } else if (value.length < 3) {
+          error = 'Username must be at least 3 characters';
+        } else if (!/^[a-zA-Z0-9_]+$/.test(value)) {
+          error = 'Username can only contain letters, numbers, and underscores';
+        }
+        break;
+        
+      case 'email':
+        if (!value.trim()) {
+          error = 'Email is required';
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          error = 'Please enter a valid email address';
+        }
+        break;
+        
+      case 'password':
+        if (!value.trim()) {
+          error = 'Password is required';
+        } else if (value.length < 8) {
+          error = 'Password must be at least 8 characters';
+        } else if (!/(?=.*[a-z])/.test(value)) {
+          error = 'Password must include at least one lowercase letter';
+        } else if (!/(?=.*[A-Z])/.test(value)) {
+          error = 'Password must include at least one uppercase letter';
+        } else if (!/(?=.*\d)/.test(value)) {
+          error = 'Password must include at least one number';
+        }
+        break;
+        
+      case 'confirmPassword':
+        if (!value.trim()) {
+          error = 'Please confirm your password';
+        } else if (value !== createForm.password) {
+          error = 'Passwords do not match';
+        }
+        break;
+        
+      case 'name':
+        // Name is optional, but if provided, validate it
+        if (value.trim() && value.length < 2) {
+          error = 'Name must be at least 2 characters';
+        }
+        break;
+    }
+    
+    return error;
+  };
+
+  // Handle field change with validation
+  const handleFieldChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    
+    // Update form data
+    setCreateForm({
+      ...createForm,
+      [name]: value
+    });
+    
+    // Validate the field
+    const error = validateField(name, value);
+    
+    // Update error state
+    setFormErrors({
+      ...formErrors,
+      [name]: error
+    });
+    
+    // If this is a password field, also validate confirmPassword
+    if (name === 'password') {
+      const confirmError = createForm.confirmPassword 
+        ? (value !== createForm.confirmPassword ? 'Passwords do not match' : '')
+        : '';
+      
+      setFormErrors(prev => ({
+        ...prev,
+        confirmPassword: confirmError
+      }));
+    }
+  };
+
+  // Validate the entire form
+  const validateForm = () => {
+    const errors = {
+      username: validateField('username', createForm.username),
+      email: validateField('email', createForm.email),
+      password: validateField('password', createForm.password),
+      confirmPassword: validateField('confirmPassword', createForm.confirmPassword),
+      name: validateField('name', createForm.name)
+    };
+    
+    setFormErrors(errors);
+    
+    // Form is valid if there are no errors
+    return !Object.values(errors).some(error => error !== '');
+  };
+
+  // Add a handler for creating a new user
+  const handleCreateUser = async () => {
+    try {
+      // Validate the form
+      if (!validateForm()) {
+        throw new Error('Please fix the errors in the form');
+      }
+
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      // Prepare the request body
+      const userData = {
+        username: createForm.username,
+        name: createForm.name,
+        email: createForm.email,
+        password: createForm.password,
+        roles: [createForm.role === 'Admin' ? 'ROLE_ADMIN' : 'ROLE_USER']
+      };
+
+      const response = await fetch('http://localhost:8080/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(userData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to create user (${response.status})`);
+      }
+
+      const newUser = await response.json();
+
+      // Create a UI-friendly user object
+      const nameToUse = newUser.name || newUser.username;
+      const initials = nameToUse
+        .split(' ')
+        .map((n: string) => n[0])
+        .join('')
+        .toUpperCase()
+        .substring(0, 2);
+
+      const uiUser: User = {
+        id: newUser.id,
+        name: newUser.name || newUser.username,
+        username: newUser.username,
+        email: newUser.email,
+        role: createForm.role,
+        status: 'Active',
+        avatar: newUser.picture || "/placeholder.svg?height=32&width=32",
+        initials: initials,
+        joinedDate: new Date().toLocaleDateString(),
+        courses: 0
+      };
+
+      // Add the new user to the state
+      setUsers([uiUser, ...users]);
+      
+      // Update stats
+      setStats({
+        ...stats,
+        totalUsers: stats.totalUsers + 1,
+        activeUsers: stats.activeUsers + 1
+      });
+
+      // Reset form and close dialog
+      setCreateForm({
+        username: '',
+        name: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        role: 'User'
+      });
+      
+      // Reset errors
+      setFormErrors({
+        username: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        name: ''
+      });
+      
+      setIsCreateDialogOpen(false);
+
+      // Show success alert
+      setAlert({
+        type: 'success',
+        title: 'Success!',
+        description: 'User created successfully.'
+      });
+      setTimeout(() => setAlert(null), 3000);
+    } catch (error) {
+      console.error('Error creating user:', error);
+      setAlert({
+        type: 'error',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to create user'
+      });
+      setTimeout(() => setAlert(null), 3000);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] animate-fade-in">
@@ -456,7 +689,10 @@ export default function UsersPage() {
           <p className="text-muted-foreground">Manage your platform users and their permissions</p>
         </div>
         <div className="flex gap-2">
-          <Button className="transition-all duration-300 hover:scale-105 hover:shadow-md active:scale-95">
+          <Button 
+            className="transition-all duration-300 hover:scale-105 hover:shadow-md active:scale-95"
+            onClick={() => setIsCreateDialogOpen(true)}
+          >
             <UserPlus className="mr-2 h-4 w-4" />
             Add New User
           </Button>
@@ -743,6 +979,170 @@ export default function UsersPage() {
               Cancel
             </Button>
             <Button onClick={handleEditSubmit}>Save changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Create User Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Create New User</DialogTitle>
+            <DialogDescription>
+              Add a new user to the platform. All fields are required except name.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="username" className="text-right">
+                Username
+              </Label>
+              <div className="col-span-3 space-y-1">
+                <Input
+                  id="username"
+                  name="username"
+                  className={formErrors.username ? "border-red-500" : ""}
+                  value={createForm.username}
+                  onChange={handleFieldChange}
+                  onBlur={() => {
+                    const error = validateField('username', createForm.username);
+                    setFormErrors({...formErrors, username: error});
+                  }}
+                />
+                {formErrors.username && (
+                  <p className="text-xs text-red-500">{formErrors.username}</p>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Name
+              </Label>
+              <div className="col-span-3 space-y-1">
+                <Input
+                  id="name"
+                  name="name"
+                  className={formErrors.name ? "border-red-500" : ""}
+                  value={createForm.name}
+                  onChange={handleFieldChange}
+                  onBlur={() => {
+                    const error = validateField('name', createForm.name);
+                    setFormErrors({...formErrors, name: error});
+                  }}
+                />
+                {formErrors.name && (
+                  <p className="text-xs text-red-500">{formErrors.name}</p>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="email" className="text-right">
+                Email
+              </Label>
+              <div className="col-span-3 space-y-1">
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  className={formErrors.email ? "border-red-500" : ""}
+                  value={createForm.email}
+                  onChange={handleFieldChange}
+                  onBlur={() => {
+                    const error = validateField('email', createForm.email);
+                    setFormErrors({...formErrors, email: error});
+                  }}
+                />
+                {formErrors.email && (
+                  <p className="text-xs text-red-500">{formErrors.email}</p>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="password" className="text-right">
+                Password
+              </Label>
+              <div className="col-span-3 space-y-1">
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  className={formErrors.password ? "border-red-500" : ""}
+                  value={createForm.password}
+                  onChange={handleFieldChange}
+                  onBlur={() => {
+                    const error = validateField('password', createForm.password);
+                    setFormErrors({...formErrors, password: error});
+                  }}
+                />
+                {formErrors.password && (
+                  <p className="text-xs text-red-500">{formErrors.password}</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Must be at least 8 characters with uppercase, lowercase and numbers
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="confirmPassword" className="text-right">
+                Confirm Password
+              </Label>
+              <div className="col-span-3 space-y-1">
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  className={formErrors.confirmPassword ? "border-red-500" : ""}
+                  value={createForm.confirmPassword}
+                  onChange={handleFieldChange}
+                  onBlur={() => {
+                    const error = validateField('confirmPassword', createForm.confirmPassword);
+                    setFormErrors({...formErrors, confirmPassword: error});
+                  }}
+                />
+                {formErrors.confirmPassword && (
+                  <p className="text-xs text-red-500">{formErrors.confirmPassword}</p>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="role" className="text-right">
+                Role
+              </Label>
+              <Select 
+                value={createForm.role} 
+                onValueChange={(value) => setCreateForm({...createForm, role: value})}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="User">User</SelectItem>
+                  <SelectItem value="Admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsCreateDialogOpen(false);
+              // Reset form and errors
+              setCreateForm({
+                username: '',
+                name: '',
+                email: '',
+                password: '',
+                confirmPassword: '',
+                role: 'User'
+              });
+              setFormErrors({
+                username: '',
+                email: '',
+                password: '',
+                confirmPassword: '',
+                name: ''
+              });
+            }}>Cancel</Button>
+            <Button onClick={handleCreateUser}>Create User</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

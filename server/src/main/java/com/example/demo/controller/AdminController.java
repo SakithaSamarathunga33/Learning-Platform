@@ -128,6 +128,63 @@ public class AdminController {
         }
     }
 
+    @PostMapping("/users")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> createUser(@RequestBody Map<String, Object> userDetails) {
+        try {
+            // Required fields validation
+            String username = (String) userDetails.get("username");
+            String email = (String) userDetails.get("email");
+            String password = (String) userDetails.get("password");
+
+            if (username == null || username.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("Username is required");
+            }
+            if (email == null || email.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("Email is required");
+            }
+            if (password == null || password.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("Password is required");
+            }
+
+            // Check if username or email already exists
+            if (userRepository.findByUsername(username).isPresent()) {
+                return ResponseEntity.badRequest().body("Username already taken");
+            }
+            if (userRepository.findByEmail(email).isPresent()) {
+                return ResponseEntity.badRequest().body("Email already in use");
+            }
+
+            // Create new user
+            User newUser = new User();
+            newUser.setUsername(username);
+            newUser.setEmail(email);
+            newUser.setPassword(password); // The service should handle password encryption
+            
+            // Optional fields
+            if (userDetails.get("name") != null) {
+                newUser.setName((String) userDetails.get("name"));
+            }
+            
+            // Default values
+            newUser.setEnabled(true);
+            
+            // Set roles (default to ROLE_USER if not specified)
+            @SuppressWarnings("unchecked")
+            List<String> roles = (List<String>) userDetails.get("roles");
+            if (roles != null && !roles.isEmpty()) {
+                newUser.setRoles(Set.copyOf(roles));
+            } else {
+                newUser.setRoles(Set.of("ROLE_USER"));
+            }
+
+            User savedUser = userService.createUser(newUser);
+            return new ResponseEntity<>(savedUser, HttpStatus.CREATED);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error creating user: " + e.getMessage());
+        }
+    }
+
     @GetMapping("/comments")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<Comment>> getAllComments() {
