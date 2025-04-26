@@ -1,29 +1,42 @@
 package com.example.demo.model;
 
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.mapping.DBRef;
+import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.LocalDateTime;
 
 @Document(collection = "achievements")
 public class Achievement {
     @Id
     private String id;
-    
     private String title;
     private String description;
+    
     private String imageUrl;
     private String imagePublicId;
+    
+    @CreatedDate
     private LocalDateTime createdAt;
-    private int likes;
-    private boolean hasLiked;
+    
+    private int likes = 0;
+    
+    @Transient
+    private boolean hasLiked = false;
     
     @DBRef
     private User user;
 
+    // Constructors
     public Achievement() {
-        this.createdAt = LocalDateTime.now();
-        this.likes = 0;
+        // createdAt will be automatically set by @CreatedDate
+    }
+
+    public Achievement(String title, String description, User user) {
+        this.title = title;
+        this.description = description;
+        this.user = user;
     }
 
     // Getters and Setters
@@ -82,7 +95,7 @@ public class Achievement {
     public void setUser(User user) {
         this.user = user;
     }
-    
+
     public int getLikes() {
         return likes;
     }
@@ -98,4 +111,26 @@ public class Achievement {
     public void setHasLiked(boolean hasLiked) {
         this.hasLiked = hasLiked;
     }
-} 
+
+    // Utility methods
+    public void incrementLikes() {
+        this.likes++;
+    }
+
+    public void decrementLikes() {
+        if (this.likes > 0) {
+            this.likes--;
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "Achievement{" +
+                "id='" + id + '\'' +
+                ", title='" + title + '\'' +
+                ", description='" + description + '\'' +
+                ", createdAt=" + createdAt +
+                ", likes=" + likes +
+                '}';
+    }
+}

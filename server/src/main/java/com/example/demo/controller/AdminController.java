@@ -3,7 +3,7 @@ package com.example.demo.controller;
 import com.example.demo.model.Comment;
 import com.example.demo.model.User;
 import com.example.demo.repository.CommentRepository;
-import com.example.demo.repository.AchievementRepository;
+import com.example.demo.repository.AchievementRepo;
 import com.example.demo.repository.CourseRepository;
 import com.example.demo.service.UserService;
 import com.example.demo.repository.UserRepository;
@@ -34,7 +34,7 @@ public class AdminController {
     private CommentRepository commentRepository;
 
     @Autowired
-    private AchievementRepository achievementRepository;
+    private AchievementRepo achievementRepository;
     
     @Autowired
     private CourseRepository courseRepository;
