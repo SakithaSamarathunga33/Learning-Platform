@@ -8,6 +8,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -25,6 +26,8 @@ public class User implements UserDetails {
     private Set<String> roles;
     private boolean enabled;
     private String bio;
+    private Set<String> following = new HashSet<>();
+    private Set<String> followers = new HashSet<>();
 
     public String getId() {
         return id;
@@ -104,6 +107,22 @@ public class User implements UserDetails {
 
     public void setBio(String bio) {
         this.bio = bio;
+    }
+    
+    public Set<String> getFollowing() {
+        return following != null ? following : new HashSet<>();
+    }
+    
+    public void setFollowing(Set<String> following) {
+        this.following = following;
+    }
+    
+    public Set<String> getFollowers() {
+        return followers != null ? followers : new HashSet<>();
+    }
+    
+    public void setFollowers(Set<String> followers) {
+        this.followers = followers;
     }
 
     @Override

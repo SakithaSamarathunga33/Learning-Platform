@@ -5,15 +5,15 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
-import { useState, useEffect, useRef } from 'react'; // Added useRef
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import ImageUpload, { ImageUploadHandle } from '@/components/ImageUpload'; // Fixed import and added ImageUploadHandle
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Fixed import
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'; // Fixed import
-import { Button } from '@/components/ui/button'; // Fixed import
-import { Input } from '@/components/ui/input'; // Fixed import
-import { Textarea } from '@/components/ui/textarea'; // Fixed import
-import { Badge } from '@/components/ui/badge'; // Fixed import
+import ImageUpload, { ImageUploadHandle } from '@/components/ImageUpload';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   User,
   Settings,
@@ -29,7 +29,8 @@ import {
   Plus,
   Image,
   ImagePlus,
-  X
+  X,
+  Users
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -43,6 +44,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import AchievementUpload from '@/components/AchievementUpload';
+import FollowersModal from '@/components/user/FollowersModal';
 
 interface User {
   id: string;
@@ -57,6 +59,8 @@ interface User {
   website?: string;
   occupation?: string;
   skills?: string;
+  following?: string[];
+  followers?: string[];
 }
 
 interface Achievement {
@@ -97,6 +101,10 @@ export default function ProfilePage() {
   const [postTitle, setPostTitle] = useState('');
   const [postDescription, setPostDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Followers State
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [followersModalTab, setFollowersModalTab] = useState<'followers' | 'following'>('followers');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -122,7 +130,9 @@ export default function ProfilePage() {
           location: userData.location || '',
           website: userData.website || '',
           occupation: userData.occupation || '',
-          skills: userData.skills || ''
+          skills: userData.skills || '',
+          following: userData.following || [],
+          followers: userData.followers || []
         };
         setUser(completeUserData);
         setEditedUser(completeUserData);
@@ -161,7 +171,9 @@ export default function ProfilePage() {
         location: data.location || '',
         website: data.website || '',
         occupation: data.occupation || '',
-        skills: data.skills || ''
+        skills: data.skills || '',
+        following: data.following || [],
+        followers: data.followers || []
       };
       
       setUser(userData);
@@ -200,32 +212,19 @@ export default function ProfilePage() {
       }
 
       const updatedUser = await response.json();
-      const completeUserData = {
-        ...updatedUser,
-        name: updatedUser.name || '',
-        picture: updatedUser.picture || '',
-        username: updatedUser.username || '',
-        email: updatedUser.email || '',
-        provider: updatedUser.provider || 'local',
-        bio: updatedUser.bio || '',
-        location: updatedUser.location || '',
-        website: updatedUser.website || '',
-        occupation: updatedUser.occupation || '',
-        skills: updatedUser.skills || ''
-      };
       
-      setUser(completeUserData);
-      setEditedUser(completeUserData);
-      localStorage.setItem('user', JSON.stringify(completeUserData));
+      // Update local state
+      setUser(updatedUser);
+      setEditedUser(updatedUser);
       
-      const event = new CustomEvent('userDataChanged');
-      window.dispatchEvent(event);
+      // Update user in localStorage
+      localStorage.setItem('user', JSON.stringify(updatedUser));
       
-      setSuccess('Profile picture updated successfully!');
-      setTimeout(() => setSuccess(''), 3000);
+      toast.success('Profile picture updated successfully!');
     } catch (err) {
-      console.error('Error updating profile picture:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update profile picture');
+      console.error('Error uploading profile picture:', err);
+      setError(err instanceof Error ? err.message : 'Error uploading profile picture');
+      toast.error('Failed to update profile picture');
     }
   };
 
@@ -443,235 +442,143 @@ export default function ProfilePage() {
     }
   }, [activeTab, user]);
 
+  const openFollowersModal = (tab: 'followers' | 'following') => {
+    setFollowersModalTab(tab);
+    setShowFollowersModal(true);
+  };
+
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <div className="container py-12 flex-1">
-          <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      <div className="container mx-auto p-4">
+        <div className="flex flex-col items-center justify-center h-96">
+          <div className="text-center">
+            <Skeleton className="h-20 w-20 rounded-full mx-auto mb-4" />
+            <Skeleton className="h-8 w-48 mx-auto mb-2" />
+            <Skeleton className="h-4 w-32 mx-auto" />
           </div>
         </div>
       </div>
     );
   }
 
+  if (!user) {
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Profile Header */}
-      <section className="bg-primary/10 py-12">
-        <div className="container">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
-            <div className="relative group">
-              <ImageUpload
-                ref={imageUploadRef}
-                currentImage={user?.picture}
-                onImageUpload={handleImageUpload}
-                className="w-32 h-32 border-4 border-background rounded-full"
-              />
-              <button
-                onClick={() => imageUploadRef.current?.triggerFileInput()}
-                className="absolute -bottom-2 -right-2 bg-primary text-white p-2 rounded-full shadow-md hover:bg-primary/90 transition-all"
-                title="Upload new photo"
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
+      <div className="container mx-auto p-4">
+        <div className="flex flex-col items-center justify-center h-96">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">User not found</h1>
+            <p className="mb-6">There was an error loading your profile.</p>
+            <Button onClick={() => router.push('/')}>
+              Return to Home
+            </Button>
             </div>
-            <div className="flex-1 text-center md:text-left">
-              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-                <h1 className="text-3xl font-bold">{user?.name || user?.username}</h1>
-                <Badge className="w-fit mx-auto md:mx-0">
-                  {user?.roles.includes('ROLE_ADMIN') ? 'Admin' : 'User'}
-                </Badge>
               </div>
-              <p className="text-muted-foreground mt-2 max-w-2xl">
-                {user?.bio || 'No bio provided'}
-              </p>
-              {user?.skills && (
-                <div className="flex flex-wrap gap-2 mt-4 justify-center md:justify-start">
-                  {user.skills.split(',').map(skill => (
-                    <Badge key={skill.trim()} variant="outline" className="bg-primary/10">
-                      {skill.trim()}
-                    </Badge>
-                  ))}
                 </div>
-              )}
-            </div>
-            <div className="flex flex-col gap-2 min-w-[150px]">
-              <div className="flex items-center gap-2">
-                <Mail className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Email</p>
-                  <p className="font-medium">{user?.email}</p>
-                </div>
-              </div>
-              {user?.location && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Location</p>
-                    <p className="font-medium">{user.location}</p>
-                  </div>
-                </div>
-              )}
-              {user?.provider && (
-                <div className="flex items-center gap-2">
-                  <Briefcase className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Provider</p>
-                    <p className="font-medium capitalize">{user.provider}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
+    );
+  }
 
-      {/* Main Content */}
-      <section className="py-12 flex-1">
-        <div className="container">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <div className="border-b">
-              <div className="flex overflow-x-auto">
-                <TabsList className="bg-transparent h-auto p-0 flex gap-6">
-                  <TabsTrigger
-                    value="profile"
-                    className="flex items-center gap-2 px-1 py-4 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none bg-transparent h-auto"
-                  >
-                    <User className="h-4 w-4" />
-                    Profile
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="posts"
-                    className="flex items-center gap-2 px-1 py-4 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none bg-transparent h-auto"
-                  >
-                    <Image className="h-4 w-4" />
-                    My Posts
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="settings"
-                    className="flex items-center gap-2 px-1 py-4 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none bg-transparent h-auto"
-                  >
-                    <Settings className="h-4 w-4" />
-                    Settings
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-            </div>
+  const followersCount = user.followers?.length || 0;
+  const followingCount = user.following?.length || 0;
 
-            {error && (
-              <div className="bg-red-100 border border-red-200 text-red-800 px-4 py-3 rounded mt-6 flex items-center">
-                <p>{error}</p>
-              </div>
-            )}
-
-            {success && (
-              <div className="bg-green-100 border border-green-200 text-green-800 px-4 py-3 rounded mt-6 flex items-center">
-                <CheckCircle className="h-5 w-5 mr-2" />
-                {success}
-              </div>
-            )}
-
-            {/* Profile Tab */}
-            <TabsContent value="profile" className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="md:col-span-2">
-                  <Card>
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-6">My Profile</h1>
+      
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="posts">My Posts</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="profile">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="md:col-span-1">
                     <CardHeader>
-                      <CardTitle>Personal Information</CardTitle>
-                      <CardDescription>View your personal information</CardDescription>
+                <CardTitle>Profile</CardTitle>
+                <CardDescription>Your personal information</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <User className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="text-sm text-muted-foreground">Username</p>
-                          <p className="font-medium">{user?.username}</p>
+              <CardContent className="flex flex-col items-center text-center">
+                <div className="relative mb-6">
+                  {user.picture ? (
+                    <img 
+                      src={user.picture} 
+                      alt={user.username} 
+                      className="w-32 h-32 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center">
+                      <User className="w-12 h-12 text-gray-400" />
                         </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Mail className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="text-sm text-muted-foreground">Email</p>
-                          <p className="font-medium">{user?.email}</p>
-                        </div>
-                      </div>
-                      {user?.name && (
-                        <div className="flex items-center gap-3">
-                          <Briefcase className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <p className="text-sm text-muted-foreground">Name</p>
-                            <p className="font-medium">{user.name}</p>
+                      )}
+                  <Button 
+                    size="icon" 
+                    variant="outline" 
+                    className="absolute bottom-0 right-0 rounded-full" 
+                    onClick={() => imageUploadRef.current?.triggerFileInput()}
+                  >
+                    <ImagePlus className="h-4 w-4" />
+                  </Button>
                           </div>
-                        </div>
-                      )}
-                      {user?.location && (
-                        <div className="flex items-center gap-3">
-                          <MapPin className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <p className="text-sm text-muted-foreground">Location</p>
-                            <p className="font-medium">{user.location}</p>
+                
+                <h2 className="text-xl font-bold mt-2">{user.name || user.username}</h2>
+                <p className="text-gray-500 mb-4">@{user.username}</p>
+                
+                {user.bio && (
+                  <p className="text-gray-700 mb-4">{user.bio}</p>
+                )}
+                
+                <div className="flex justify-center space-x-6 mb-6">
+                  <button 
+                    onClick={() => openFollowersModal('followers')}
+                    className="text-center"
+                  >
+                    <div className="font-semibold">{followersCount}</div>
+                    <div className="text-xs text-gray-500">Followers</div>
+                  </button>
+                  
+                  <button 
+                    onClick={() => openFollowersModal('following')}
+                    className="text-center"
+                  >
+                    <div className="font-semibold">{followingCount}</div>
+                    <div className="text-xs text-gray-500">Following</div>
+                  </button>
                           </div>
-                        </div>
-                      )}
-                      {user?.website && (
-                        <div className="flex items-center gap-3">
-                          <Briefcase className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <p className="text-sm text-muted-foreground">Website</p>
-                            <p className="font-medium">{user.website}</p>
-                          </div>
-                        </div>
-                      )}
-                      {user?.occupation && (
-                        <div className="flex items-center gap-3">
-                          <GraduationCap className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <p className="text-sm text-muted-foreground">Occupation</p>
-                            <p className="font-medium">{user.occupation}</p>
-                          </div>
-                        </div>
-                      )}
-                      {user?.bio && (
-                        <div className="mt-4">
-                          <h3 className="font-medium mb-2">Bio</h3>
-                          <p className="text-muted-foreground">{user.bio}</p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
 
-                <div>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Account Information</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <Briefcase className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="text-sm text-muted-foreground">Account Type</p>
-                          <p className="font-medium capitalize">{user?.provider || 'local'}</p>
+                <div className="w-full space-y-3">
+                  {user.email && (
+                    <div className="flex items-center">
+                      <Mail className="w-4 h-4 mr-2 text-gray-500" />
+                      <span className="text-sm text-gray-700">{user.email}</span>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Award className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="text-sm text-muted-foreground">Role</p>
-                          <p className="font-medium">
-                            {user?.roles.includes('ROLE_ADMIN') ? 'Admin' : 'User'}
-                          </p>
+                      )}
+                  {user.occupation && (
+                    <div className="flex items-center">
+                      <Briefcase className="w-4 h-4 mr-2 text-gray-500" />
+                      <span className="text-sm text-gray-700">{user.occupation}</span>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      )}
+                  {user.location && (
+                    <div className="flex items-center">
+                      <MapPin className="w-4 h-4 mr-2 text-gray-500" />
+                      <span className="text-sm text-gray-700">{user.location}</span>
+                        </div>
+                      )}
                 </div>
+                    </CardContent>
+              <CardFooter className="flex justify-center">
+                <Button variant="outline" onClick={() => setActiveTab('settings')}>
+                  Edit Profile
+                </Button>
+              </CardFooter>
+                  </Card>
+            
+            {/* About Me card removed */}
               </div>
             </TabsContent>
 
-            {/* New Posts Tab */}
-            <TabsContent value="posts" className="pt-6">
+        <TabsContent value="posts">
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -791,13 +698,10 @@ export default function ProfilePage() {
               </Card>
             </TabsContent>
 
-            {/* Settings Tab */}
-            <TabsContent value="settings" className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="md:col-span-2">
+        <TabsContent value="settings">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Edit Profile</CardTitle>
+              <CardTitle>Profile Settings</CardTitle>
                       <CardDescription>Update your personal information</CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -886,123 +790,24 @@ export default function ProfilePage() {
                       </form>
                     </CardContent>
                   </Card>
-                </div>
-              </div>
             </TabsContent>
           </Tabs>
-        </div>
-      </section>
-
-      {/* Edit Post Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>Edit Post</DialogTitle>
-            <DialogDescription>
-              Update your post details
-            </DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="max-h-[60vh]">
-            <div className="grid gap-4 py-4 px-1">
-              <div className="grid gap-2">
-                <label htmlFor="edit-title" className="text-sm font-medium">
-                  Title
-                </label>
-                <Input
-                  id="edit-title"
-                  placeholder="Enter post title"
-                  value={postTitle}
-                  onChange={(e) => setPostTitle(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="edit-description" className="text-sm font-medium">
-                  Description
-                </label>
-                <Textarea
-                  id="edit-description"
-                  placeholder="Enter post description"
-                  className="min-h-[100px]"
-                  value={postDescription}
-                  onChange={(e) => setPostDescription(e.target.value)}
-                />
-              </div>
-              {selectedPost?.imageUrl && (
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium">
-                    Current Image
-                  </label>
-                  <div className="h-40 w-full overflow-hidden rounded-md border">
-                    <img
-                      src={selectedPost.imageUrl}
-                      alt={selectedPost.title}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleUpdatePost} 
-              disabled={isSubmitting || !postTitle || !postDescription}
-            >
-              {isSubmitting ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Post Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Delete Post</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this post? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            {selectedPost && (
-              <div className="flex flex-col items-center justify-center space-y-2 text-center">
-                <div className="h-24 w-32 overflow-hidden rounded-md border">
-                  {selectedPost.imageUrl ? (
-                    <img
-                      src={selectedPost.imageUrl}
-                      alt={selectedPost.title}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-muted">
-                      <ImagePlus className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
-                <p className="font-medium">{selectedPost.title}</p>
-                <p className="text-sm text-muted-foreground">
-                  Created on {new Date(selectedPost.createdAt).toLocaleDateString()}
-                </p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={handleDeletePost} 
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Deleting...' : 'Delete Post'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      
+      <ImageUpload 
+        ref={imageUploadRef}
+        onImageUpload={handleImageUpload}
+        currentImage={user.picture}
+      />
+      
+      {user && (
+        <FollowersModal 
+          userId={user.id}
+          username={user.username}
+          open={showFollowersModal}
+          onOpenChange={setShowFollowersModal}
+          defaultTab={followersModalTab}
+        />
+      )}
     </div>
   );
 }

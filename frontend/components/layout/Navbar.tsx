@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import Image from 'next/image';
@@ -8,7 +8,10 @@ import { useTheme } from '@/app/providers/ThemeProvider';
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
-import { BookOpen, Search, Menu, X, Sun, Moon } from "lucide-react";
+import { BookOpen, Search, Menu, X, Sun, Moon, Loader2 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useDebounce } from '@/hooks/useDebounce';
+import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 
 interface User {
   id: string;
@@ -46,6 +49,17 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  
+  // Search functionality
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<User[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const searchResultsRef = useRef<HTMLDivElement>(null);
+  
+  // Close search results when clicking outside
+  useOnClickOutside(searchResultsRef, () => setShowResults(false));
 
   // Function to update user data
   const updateUserData = () => {
@@ -53,16 +67,18 @@ export default function Navbar() {
     if (userStr) {
       try {
         const userData = JSON.parse(userStr);
-        console.log('Updating user data in navbar:', userData);
-        // Force a refresh when profile picture changes
-        if (user?.picture !== userData.picture || user?.profilePicture !== userData.profilePicture) {
-          console.log('Profile picture changed, updating navbar');
+        // Only update state if user data actually changed
+        if (!user || 
+            user.id !== userData.id || 
+            user.picture !== userData.picture || 
+            user.profilePicture !== userData.profilePicture) {
+          setUser(userData);
         }
-        setUser(userData);
       } catch (error) {
         console.error('Error parsing user data:', error);
       }
-    } else {
+    } else if (user !== null) {
+      // Only set to null if not already null
       setUser(null);
     }
   };
@@ -97,6 +113,127 @@ export default function Navbar() {
       window.removeEventListener('userDataChanged', handleCustomStorageChange);
     };
   }, []);
+
+  // Search for users when the debounced query changes
+  useEffect(() => {
+    // Skip search if query is too short
+    if (!debouncedSearchQuery || debouncedSearchQuery.trim().length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    // Skip search if results dropdown is hidden
+    if (!showResults) {
+      return;
+    }
+
+    const searchUsers = async () => {
+      try {
+        setIsSearching(true);
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setIsSearching(false);
+          return;
+        }
+
+        // Use a consistent caching strategy
+        const cacheKey = `user_search_cache`;
+        const searchKey = debouncedSearchQuery.toLowerCase();
+        
+        // Check session storage cache first
+        let allUsers = null;
+        const cachedData = sessionStorage.getItem(cacheKey);
+        
+        if (cachedData) {
+          allUsers = JSON.parse(cachedData);
+          // Filter cached users
+          const filteredResults = allUsers
+            .filter((result: User) => 
+              result.id !== user?.id && // Filter out current user
+              result.username && // Ensure username exists
+              result.username.toLowerCase().includes(searchKey) // Case-insensitive search
+            )
+            .slice(0, 10); // Limit to 10 results
+            
+          setSearchResults(filteredResults);
+          setIsSearching(false);
+          return;
+        }
+
+        // Fetch users only if not in cache
+        const response = await fetch(`http://localhost:8080/api/users`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to search users');
+        }
+
+        allUsers = await response.json();
+        
+        // Store all users in session storage
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify(allUsers));
+        } catch (e) {
+          console.error('Error caching search results:', e);
+        }
+        
+        // Filter users that match the search query by username
+        const filteredResults = allUsers
+          .filter((result: User) => 
+            result.id !== user?.id && // Filter out current user
+            result.username && // Ensure username exists
+            result.username.toLowerCase().includes(searchKey) // Case-insensitive search
+          )
+          .slice(0, 10); // Limit to 10 results
+          
+        setSearchResults(filteredResults);
+      } catch (error) {
+        console.error('Error searching users:', error);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    searchUsers();
+  }, [debouncedSearchQuery, user?.id, showResults]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    if (e.target.value.trim().length > 0) {
+      setShowResults(true);
+    } else {
+      setShowResults(false);
+    }
+  };
+
+  const handleSearchBlur = () => {
+    // Delay hiding to allow clicking on results
+    setTimeout(() => {
+      if (!searchResultsRef.current?.contains(document.activeElement)) {
+        setShowResults(false);
+      }
+    }, 200);
+  };
+
+  const handleUserSelect = (username: string) => {
+    // Check if we're already on this profile page to prevent refresh loop
+    if (window.location.pathname === `/profile/${username}`) {
+      // Just close the dropdown without navigating
+      setSearchQuery('');
+      setShowResults(false);
+      setSearchOpen(false);
+      return;
+    }
+    
+    // Otherwise clear the search state - navigation will happen through the link's href
+    setSearchQuery('');
+    setShowResults(false);
+    setSearchOpen(false);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -172,7 +309,63 @@ export default function Navbar() {
           {/* Desktop Search */}
           <div className="relative hidden md:block">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input type="search" placeholder="Search courses..." className="w-[200px] lg:w-[300px] pl-8" />
+            <Input 
+              type="search" 
+              placeholder="Search users by username..." 
+              className="w-[200px] lg:w-[300px] pl-8" 
+              value={searchQuery}
+              onChange={handleSearchChange}
+              onFocus={() => setShowResults(true)}
+              onBlur={handleSearchBlur}
+              id="desktop-search"
+              name="desktop-search"
+            />
+            {showResults && (
+              <div 
+                ref={searchResultsRef}
+                className="absolute left-0 right-0 mt-1 max-h-72 overflow-y-auto rounded-md border bg-background shadow-lg z-50"
+              >
+                {isSearching ? (
+                  <div className="flex items-center justify-center p-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-sm text-muted-foreground">Searching...</span>
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  <div className="py-1">
+                    <p className="px-4 py-2 text-xs font-medium text-muted-foreground border-b">
+                      Users ({searchResults.length})
+                    </p>
+                    {searchResults.map((result) => (
+                      <Link
+                        key={result.id}
+                        href={`/profile/${result.username}`}
+                        className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-accent text-left"
+                        onClick={() => handleUserSelect(result.username)}
+                      >
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={result.picture || result.profilePicture} alt={result.username} />
+                          <AvatarFallback>
+                            {result.username.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium">{result.name || result.username}</p>
+                          <p className="text-xs text-muted-foreground">@{result.username}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : searchQuery.trim().length > 1 ? (
+                  <div className="px-4 py-3 text-sm text-center text-muted-foreground">
+                    No users found
+                  </div>
+                ) : (
+                  <div className="px-4 py-3 text-sm text-center text-muted-foreground">
+                    Type at least 2 characters to search
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Mobile Search Toggle */}
@@ -269,8 +462,64 @@ export default function Navbar() {
                 {/* Mobile Search */}
                 <div className="relative my-4">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input type="search" placeholder="Search courses..." className="w-full pl-8" />
-      </div>
+                  <Input 
+                    type="search" 
+                    placeholder="Search users by username..." 
+                    className="w-full pl-8" 
+                    value={searchQuery}
+                    onChange={handleSearchChange}
+                    onFocus={() => setShowResults(true)}
+                    onBlur={handleSearchBlur}
+                    id="mobile-search"
+                    name="mobile-search"
+                  />
+                  {showResults && (
+                    <div 
+                      ref={searchResultsRef}
+                      className="absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-md border bg-background shadow-lg z-50"
+                    >
+                      {isSearching ? (
+                        <div className="flex items-center justify-center p-4">
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          <span className="ml-2 text-sm text-muted-foreground">Searching...</span>
+                        </div>
+                      ) : searchResults.length > 0 ? (
+                        <div className="py-1">
+                          <p className="px-4 py-2 text-xs font-medium text-muted-foreground border-b">
+                            Users ({searchResults.length})
+                          </p>
+                          {searchResults.map((result) => (
+                            <Link
+                              key={result.id}
+                              href={`/profile/${result.username}`}
+                              className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-accent text-left"
+                              onClick={() => handleUserSelect(result.username)}
+                            >
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={result.picture || result.profilePicture} alt={result.username} />
+                                <AvatarFallback>
+                                  {result.username.substring(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium">{result.name || result.username}</p>
+                                <p className="text-xs text-muted-foreground">@{result.username}</p>
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      ) : searchQuery.trim().length > 1 ? (
+                        <div className="px-4 py-3 text-sm text-center text-muted-foreground">
+                          No users found
+                        </div>
+                      ) : (
+                        <div className="px-4 py-3 text-sm text-center text-muted-foreground">
+                          Type at least 2 characters to search
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
       {/* Mobile Navigation */}
                 <nav className="flex flex-col gap-4 py-4">
@@ -335,10 +584,71 @@ export default function Navbar() {
         <div className="md:hidden px-4 py-2 border-t">
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input type="search" placeholder="Search courses..." className="w-full pl-8" autoFocus />
-            <Button variant="ghost" size="icon" className="absolute right-1 top-1" onClick={() => setSearchOpen(false)}>
+            <Input 
+              type="search" 
+              placeholder="Search users by username..." 
+              className="w-full pl-8" 
+              autoFocus
+              value={searchQuery}
+              onChange={handleSearchChange}
+              onFocus={() => setShowResults(true)}
+              onBlur={handleSearchBlur}
+            />
+            <Button variant="ghost" size="icon" className="absolute right-1 top-1" onClick={() => {
+              setSearchOpen(false);
+              setSearchQuery('');
+              setShowResults(false);
+            }}>
               <X className="h-4 w-4" />
             </Button>
+            
+            {/* Add mobile search results dropdown here too */}
+            {showResults && (
+              <div 
+                ref={searchResultsRef}
+                className="absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-md border bg-background shadow-lg z-50"
+              >
+                {isSearching ? (
+                  <div className="flex items-center justify-center p-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-sm text-muted-foreground">Searching...</span>
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  <div className="py-1">
+                    <p className="px-4 py-2 text-xs font-medium text-muted-foreground border-b">
+                      Users ({searchResults.length})
+                    </p>
+                    {searchResults.map((result) => (
+                      <Link
+                        key={result.id}
+                        href={`/profile/${result.username}`}
+                        className="flex items-center gap-3 w-full px-4 py-2 text-sm hover:bg-accent text-left"
+                        onClick={() => handleUserSelect(result.username)}
+                      >
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={result.picture || result.profilePicture} alt={result.username} />
+                          <AvatarFallback>
+                            {result.username.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium">{result.name || result.username}</p>
+                          <p className="text-xs text-muted-foreground">@{result.username}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : searchQuery.trim().length > 1 ? (
+                  <div className="px-4 py-3 text-sm text-center text-muted-foreground">
+                    No users found
+                  </div>
+                ) : (
+                  <div className="px-4 py-3 text-sm text-center text-muted-foreground">
+                    Type at least 2 characters to search
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
