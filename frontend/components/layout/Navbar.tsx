@@ -254,7 +254,9 @@ export default function Navbar() {
       event.initEvent('userDataChanged', true, true);
       window.dispatchEvent(event);
     }
-    router.push('/login');
+    
+    // Refresh the page once before redirecting
+    window.location.href = '/login';
   };
 
   // User profile image component
