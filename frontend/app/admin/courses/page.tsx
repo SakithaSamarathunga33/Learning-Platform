@@ -104,6 +104,13 @@ export default function CoursesPage() {
     isPublished: false,
     thumbnailUrl: ''
   })
+  const [editFormErrors, setEditFormErrors] = useState({
+    title: '',
+    description: '',
+    price: '',
+    category: '',
+    thumbnailUrl: ''
+  })
   const [alert, setAlert] = useState<{
     type: 'success' | 'error' | 'info';
     title: string;
@@ -116,7 +123,7 @@ export default function CoursesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const coursesPerPage = 10;
 
-  // Add new course dialog state
+  // Add new course dialog state with validation errors
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [addForm, setAddForm] = useState({
     title: '',
@@ -124,6 +131,13 @@ export default function CoursesPage() {
     price: 0,
     category: '',
     isPublished: false,
+    thumbnailUrl: ''
+  })
+  const [formErrors, setFormErrors] = useState({
+    title: '',
+    description: '',
+    price: '',
+    category: '',
     thumbnailUrl: ''
   })
 
@@ -219,20 +233,98 @@ export default function CoursesPage() {
   const handleEdit = (course: Course) => {
     setEditingCourse(course);
     setEditForm({
-      title: course.title || '',
-      description: course.description || '',
-      price: course.price || 0,
+      title: course.title,
+      description: course.description,
+      price: course.price,
       category: course.category || '',
-      isPublished: course.isPublished === true || course.published === true || false,
+      isPublished: course.isPublished,
       thumbnailUrl: course.thumbnailUrl || ''
+    });
+    // Reset edit form validation errors
+    setEditFormErrors({
+      title: '',
+      description: '',
+      price: '',
+      category: '',
+      thumbnailUrl: ''
     });
     setIsEditDialogOpen(true);
   };
 
   const handleEditSubmit = async () => {
-    if (!editingCourse) return;
-
     try {
+      // Reset validation errors
+      setEditFormErrors({
+        title: '',
+        description: '',
+        price: '',
+        category: '',
+        thumbnailUrl: ''
+      });
+      
+      // Validate required fields
+      let hasErrors = false;
+      const newErrors = {
+        title: '',
+        description: '',
+        price: '',
+        category: '',
+        thumbnailUrl: ''
+      };
+      
+      // Title validation
+      if (!editForm.title.trim()) {
+        newErrors.title = "Course title is required";
+        hasErrors = true;
+      } else if (editForm.title.length < 5) {
+        newErrors.title = "Title must be at least 5 characters";
+        hasErrors = true;
+      } else if (editForm.title.length > 100) {
+        newErrors.title = "Title cannot exceed 100 characters";
+        hasErrors = true;
+      }
+      
+      // Description validation
+      if (!editForm.description.trim()) {
+        newErrors.description = "Course description is required";
+        hasErrors = true;
+      } else if (editForm.description.length < 20) {
+        newErrors.description = "Description must be at least 20 characters";
+        hasErrors = true;
+      }
+      
+      // Price validation
+      if (editForm.price < 0) {
+        newErrors.price = "Price cannot be negative";
+        hasErrors = true;
+      } else if (editForm.price > 10000) {
+        newErrors.price = "Price cannot exceed 10,000";
+        hasErrors = true;
+      }
+      
+      // Category validation
+      if (!editForm.category) {
+        newErrors.category = "Category is required";
+        hasErrors = true;
+      }
+      
+      // Thumbnail URL validation (optional, but validate if provided)
+      if (editForm.thumbnailUrl && !isValidUrl(editForm.thumbnailUrl)) {
+        newErrors.thumbnailUrl = "Please enter a valid URL";
+        hasErrors = true;
+      }
+      
+      if (hasErrors) {
+        setEditFormErrors(newErrors);
+        return;
+      }
+      
+      // Proceed with update if there are no validation errors
+      if (!editingCourse) {
+        toast.error("No course selected for editing");
+        return;
+      }
+
       // Format price as a number to ensure it's not sent as a string
       const formattedPrice = typeof editForm.price === 'string' 
         ? parseFloat(editForm.price) 
@@ -392,8 +484,69 @@ export default function CoursesPage() {
 
   const handleAddCourse = async () => {
     try {
+      // Reset validation errors
+      setFormErrors({
+        title: '',
+        description: '',
+        price: '',
+        category: '',
+        thumbnailUrl: ''
+      });
+      
+      // Validate required fields
+      let hasErrors = false;
+      const newErrors = {
+        title: '',
+        description: '',
+        price: '',
+        category: '',
+        thumbnailUrl: ''
+      };
+      
+      // Title validation
       if (!addForm.title.trim()) {
-        toast.error("Course title is required");
+        newErrors.title = "Course title is required";
+        hasErrors = true;
+      } else if (addForm.title.length < 5) {
+        newErrors.title = "Title must be at least 5 characters";
+        hasErrors = true;
+      } else if (addForm.title.length > 100) {
+        newErrors.title = "Title cannot exceed 100 characters";
+        hasErrors = true;
+      }
+      
+      // Description validation
+      if (!addForm.description.trim()) {
+        newErrors.description = "Course description is required";
+        hasErrors = true;
+      } else if (addForm.description.length < 20) {
+        newErrors.description = "Description must be at least 20 characters";
+        hasErrors = true;
+      }
+      
+      // Price validation
+      if (addForm.price < 0) {
+        newErrors.price = "Price cannot be negative";
+        hasErrors = true;
+      } else if (addForm.price > 10000) {
+        newErrors.price = "Price cannot exceed 10,000";
+        hasErrors = true;
+      }
+      
+      // Category validation
+      if (!addForm.category) {
+        newErrors.category = "Category is required";
+        hasErrors = true;
+      }
+      
+      // Thumbnail URL validation (optional, but validate if provided)
+      if (addForm.thumbnailUrl && !isValidUrl(addForm.thumbnailUrl)) {
+        newErrors.thumbnailUrl = "Please enter a valid URL";
+        hasErrors = true;
+      }
+      
+      if (hasErrors) {
+        setFormErrors(newErrors);
         return;
       }
       
@@ -534,6 +687,16 @@ export default function CoursesPage() {
 
     // Save the PDF
     doc.save('courses-report.pdf');
+  };
+
+  // Helper function to validate URLs
+  const isValidUrl = (url: string) => {
+    try {
+      new URL(url);
+      return true;
+    } catch (e) {
+      return false;
+    }
   };
 
   if (loading) {
@@ -730,24 +893,27 @@ export default function CoursesPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="title">Title <span className="text-red-500">*</span></Label>
               <Input
                 id="title"
                 value={addForm.title}
                 onChange={(e) => setAddForm({ ...addForm, title: e.target.value })}
                 placeholder="Enter course title"
-                />
-              </div>
+                className={formErrors.title ? "border-red-500" : ""}
+              />
+              {formErrors.title && <p className="text-red-500 text-sm mt-1">{formErrors.title}</p>}
+            </div>
             <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">Description <span className="text-red-500">*</span></Label>
               <Textarea
                 id="description"
                 value={addForm.description}
                 onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
                 placeholder="Enter course description"
-                className="min-h-[100px]"
-                />
-              </div>
+                className={`min-h-[100px] ${formErrors.description ? "border-red-500" : ""}`}
+              />
+              {formErrors.description && <p className="text-red-500 text-sm mt-1">{formErrors.description}</p>}
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="thumbnailUrl">Thumbnail URL</Label>
               <Input
@@ -755,25 +921,31 @@ export default function CoursesPage() {
                 value={addForm.thumbnailUrl}
                 onChange={(e) => setAddForm({ ...addForm, thumbnailUrl: e.target.value })}
                 placeholder="Enter thumbnail URL"
-                />
-              </div>
+                className={formErrors.thumbnailUrl ? "border-red-500" : ""}
+              />
+              {formErrors.thumbnailUrl && <p className="text-red-500 text-sm mt-1">{formErrors.thumbnailUrl}</p>}
+            </div>
             <div className="grid gap-2">
-              <Label htmlFor="price">Price</Label>
+              <Label htmlFor="price">Price <span className="text-red-500">*</span></Label>
               <Input
                 id="price"
                 type="number"
                 value={addForm.price}
                 onChange={(e) => setAddForm({ ...addForm, price: Number(e.target.value) })}
                 placeholder="Enter course price"
+                className={formErrors.price ? "border-red-500" : ""}
+                min="0"
+                step="0.01"
               />
+              {formErrors.price && <p className="text-red-500 text-sm mt-1">{formErrors.price}</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category">Category <span className="text-red-500">*</span></Label>
               <Select
                 value={addForm.category}
                 onValueChange={(value) => setAddForm({ ...addForm, category: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className={formErrors.category ? "border-red-500" : ""}>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -783,6 +955,7 @@ export default function CoursesPage() {
                   <SelectItem value="marketing">Marketing</SelectItem>
                 </SelectContent>
               </Select>
+              {formErrors.category && <p className="text-red-500 text-sm mt-1">{formErrors.category}</p>}
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -815,33 +988,40 @@ export default function CoursesPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="edit-title">Title</Label>
+              <Label htmlFor="edit-title">Title <span className="text-red-500">*</span></Label>
               <Input
                 id="edit-title"
                 value={editForm.title}
                 onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
                 placeholder="Enter course title"
+                className={editFormErrors.title ? "border-red-500" : ""}
               />
+              {editFormErrors.title && <p className="text-red-500 text-sm mt-1">{editFormErrors.title}</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-description">Description</Label>
+              <Label htmlFor="edit-description">Description <span className="text-red-500">*</span></Label>
               <Textarea
                 id="edit-description"
                 value={editForm.description}
                 onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                 placeholder="Enter course description"
-                className="min-h-[100px]"
+                className={`min-h-[100px] ${editFormErrors.description ? "border-red-500" : ""}`}
               />
+              {editFormErrors.description && <p className="text-red-500 text-sm mt-1">{editFormErrors.description}</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-price">Price</Label>
+              <Label htmlFor="edit-price">Price <span className="text-red-500">*</span></Label>
               <Input
                 id="edit-price"
                 type="number"
                 value={editForm.price}
                 onChange={(e) => setEditForm({ ...editForm, price: Number(e.target.value) })}
                 placeholder="Enter course price"
+                className={editFormErrors.price ? "border-red-500" : ""}
+                min="0"
+                step="0.01"
               />
+              {editFormErrors.price && <p className="text-red-500 text-sm mt-1">{editFormErrors.price}</p>}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-thumbnail">Thumbnail URL</Label>
@@ -850,15 +1030,17 @@ export default function CoursesPage() {
                 value={editForm.thumbnailUrl}
                 onChange={(e) => setEditForm({ ...editForm, thumbnailUrl: e.target.value })}
                 placeholder="Enter thumbnail URL"
+                className={editFormErrors.thumbnailUrl ? "border-red-500" : ""}
               />
+              {editFormErrors.thumbnailUrl && <p className="text-red-500 text-sm mt-1">{editFormErrors.thumbnailUrl}</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-category">Category</Label>
+              <Label htmlFor="edit-category">Category <span className="text-red-500">*</span></Label>
               <Select
                 value={editForm.category}
                 onValueChange={(value) => setEditForm({ ...editForm, category: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className={editFormErrors.category ? "border-red-500" : ""}>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -868,6 +1050,7 @@ export default function CoursesPage() {
                   <SelectItem value="marketing">Marketing</SelectItem>
                 </SelectContent>
               </Select>
+              {editFormErrors.category && <p className="text-red-500 text-sm mt-1">{editFormErrors.category}</p>}
             </div>
             <div className="flex items-center gap-2">
               <input
