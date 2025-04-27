@@ -172,7 +172,7 @@ const AdminCommentsPage = () => {
         // Also fetch achievements to get titles
         fetchAchievements(true);
       } catch (err: any) {
-        console.error('Error fetching comments:', err);
+        console.error('Error fetching comments :', err);
         setError(err.message || 'Failed to load comments');
       } finally {
         setLoading(false);
