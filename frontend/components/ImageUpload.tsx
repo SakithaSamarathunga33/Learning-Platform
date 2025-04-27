@@ -2,10 +2,15 @@ import { useState, forwardRef, useImperativeHandle, useRef } from 'react';
 import Image from 'next/image';
 import { uploadToCloudinary } from '@/utils/cloudinary';
 
+// List of allowed image extensions
+const ALLOWED_FILE_TYPES = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
 interface ImageUploadProps {
   currentImage?: string;
   onImageUpload: (url: string) => void;
   className?: string;
+  onError?: (error: string) => void;
 }
 
 // Define the type for the imperative handle
@@ -14,9 +19,10 @@ export interface ImageUploadHandle {
 }
 
 const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(
-  ({ currentImage, onImageUpload, className = '' }, ref) => {
+  ({ currentImage, onImageUpload, onError, className = '' }, ref) => {
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [error, setError] = useState<string | null>(null);
 
     // Expose a function to trigger the file input click
     useImperativeHandle(ref, () => ({
@@ -25,19 +31,44 @@ const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(
       }
     }));
 
+    const validateFile = (file: File): { valid: boolean; message?: string } => {
+      // Check file type
+      const fileName = file.name;
+      const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
+      
+      if (!ALLOWED_FILE_TYPES.includes(fileExtension)) {
+        return { 
+          valid: false, 
+          message: `Invalid file type. Allowed types: ${ALLOWED_FILE_TYPES.join(', ')}` 
+        };
+      }
+
+      // Check file size
+      if (file.size > MAX_FILE_SIZE) {
+        return { 
+          valid: false, 
+          message: `File size exceeds ${MAX_FILE_SIZE / (1024 * 1024)}MB limit.` 
+        };
+      }
+
+      return { valid: true };
+    };
+
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
-      if (!file.type.startsWith('image/')) {
-        // Optionally add user feedback here
-        console.warn('Invalid file type. Please upload an image.');
-        return;
-      }
+      // Clear previous errors
+      setError(null);
 
-      if (file.size > 5 * 1024 * 1024) {
-        // Optionally add user feedback here
-        console.warn('File size exceeds 5MB limit.');
+      // Validate file
+      const validation = validateFile(file);
+      if (!validation.valid) {
+        const errorMessage = validation.message || 'Invalid file';
+        setError(errorMessage);
+        if (onError) onError(errorMessage);
+        // Reset the file input
+        if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
 
@@ -47,9 +78,13 @@ const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(
         onImageUpload(imageUrl);
       } catch (err) {
         console.error('Upload error:', err);
-        // Optionally add user feedback here
+        const errorMessage = err instanceof Error ? err.message : 'Upload failed';
+        setError(errorMessage);
+        if (onError) onError(errorMessage);
       } finally {
         setIsUploading(false);
+        // Reset the file input
+        if (fileInputRef.current) fileInputRef.current.value = '';
       }
     };
 
@@ -86,13 +121,19 @@ const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
             </div>
           )}
+
+          {error && (
+            <div className="absolute bottom-0 left-0 right-0 bg-red-500 text-white text-xs text-center p-1">
+              {error}
+            </div>
+          )}
         </div>
 
         {/* Hidden file input */}
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept={ALLOWED_FILE_TYPES.map(ext => `.${ext}`).join(',')}
           onChange={handleFileChange}
           className="hidden"
         />

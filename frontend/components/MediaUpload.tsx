@@ -3,9 +3,14 @@
 import { CldImage, CldUploadWidget } from 'next-cloudinary';
 import { useState } from 'react';
 
+// List of allowed image extensions
+const ALLOWED_FILE_TYPES = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
 export default function MediaUpload() {
   const [publicId, setPublicId] = useState('');
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string>('');
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
   const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'ml_default';
 
@@ -15,7 +20,15 @@ export default function MediaUpload() {
     
     try {
       setUploadStatus('uploading');
-      const { public_id, secure_url, resource_type } = results.info;
+      const { public_id, secure_url, resource_type, format } = results.info;
+      
+      // Validate that this is an image file
+      if (resource_type !== 'image' && !ALLOWED_FILE_TYPES.includes(format?.toLowerCase())) {
+        setErrorMessage(`Invalid file type. Allowed types: ${ALLOWED_FILE_TYPES.join(', ')}`);
+        setUploadStatus('error');
+        return;
+      }
+      
       setPublicId(public_id);
 
       const token = localStorage.getItem('token');
@@ -43,11 +56,20 @@ export default function MediaUpload() {
       }
 
       setUploadStatus('success');
+      setErrorMessage('');
       console.log('Media upload recorded successfully');
     } catch (error) {
       console.error('Error saving media:', error);
+      setErrorMessage(error instanceof Error ? error.message : 'Unknown error occurred');
       setUploadStatus('error');
     }
+  };
+
+  // Handle upload errors
+  const handleError = (error: any) => {
+    console.error('Upload error:', error);
+    setErrorMessage(error.message || 'File upload failed. Please try again.');
+    setUploadStatus('error');
   };
 
   return (
@@ -58,17 +80,20 @@ export default function MediaUpload() {
         <CldUploadWidget
           uploadPreset={uploadPreset}
           onUpload={handleUpload}
+          onError={handleError}
           options={{
             cloudName: cloudName,
             maxFiles: 1,
             resourceType: 'auto',
-            clientAllowedFormats: ['image', 'video']
+            clientAllowedFormats: ALLOWED_FILE_TYPES,
+            maxFileSize: MAX_FILE_SIZE
           }}
         >
           {({ open }) => (
             <button
               onClick={() => {
                 setUploadStatus('idle');
+                setErrorMessage('');
                 open();
               }}
               className={`font-bold py-2 px-4 rounded ${uploadStatus === 'uploading' 
@@ -87,12 +112,16 @@ export default function MediaUpload() {
       )}
 
       {uploadStatus === 'error' && (
-        <p className="text-red-500 mt-2">Error uploading media. Please try again.</p>
+        <p className="text-red-500 mt-2">{errorMessage || 'Error uploading media. Please try again.'}</p>
       )}
 
       {uploadStatus === 'success' && (
         <p className="text-green-500 mt-2">Media uploaded successfully!</p>
       )}
+
+      <p className="text-sm text-gray-500 mt-2">
+        Allowed formats: {ALLOWED_FILE_TYPES.join(', ')}. Max size: {MAX_FILE_SIZE / (1024 * 1024)}MB.
+      </p>
 
       {publicId && (
         <div className="mt-4">

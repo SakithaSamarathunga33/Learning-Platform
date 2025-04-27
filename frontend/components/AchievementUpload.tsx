@@ -23,6 +23,10 @@ interface AchievementUploadProps {
   withForm?: boolean;
 }
 
+// List of allowed image extensions
+const ALLOWED_FILE_TYPES = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
 export default function AchievementUpload({
   imageUrl = '',
   imagePublicId = '',
@@ -48,14 +52,55 @@ export default function AchievementUpload({
     };
   }, []);
 
+  // Check file is valid
+  const validateFile = (file: any): { valid: boolean; message?: string } => {
+    // Check if a file exists
+    if (!file) {
+      return { valid: false, message: 'No file selected' };
+    }
+
+    // Check file type
+    const fileName = file.name || '';
+    const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
+    
+    if (!ALLOWED_FILE_TYPES.includes(fileExtension)) {
+      return { 
+        valid: false, 
+        message: `Invalid file type. Allowed types: ${ALLOWED_FILE_TYPES.join(', ')}` 
+      };
+    }
+
+    // Check file size
+    if (file.size > MAX_FILE_SIZE) {
+      return { 
+        valid: false, 
+        message: `File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB` 
+      };
+    }
+
+    return { valid: true };
+  };
+
   // Define a simple upload callback
   const handleUploadSuccess = useCallback((result: any) => {
     setIsLoading(false);
     
     if (result?.info) {
+      // Extract info about the uploaded file
       const info = result.info;
+      
+      // Check if this is an image file based on format or resource_type
+      const fileFormat = info.format?.toLowerCase();
+      const resourceType = info.resource_type?.toLowerCase();
+      
+      if (resourceType !== 'image' && !ALLOWED_FILE_TYPES.includes(fileFormat)) {
+        setError(`Invalid file type. Allowed types: ${ALLOWED_FILE_TYPES.join(', ')}`);
+        return;
+      }
+      
       setImagePublicId(info.public_id);
       setImageUrl(info.secure_url);
+      setError(''); // Clear any previous errors
     }
 
     // Make sure modal is closed
@@ -207,7 +252,9 @@ export default function AchievementUpload({
                     multiple: false,
                     maxFiles: 1,
                     inlineContainer: '#inline-container',
-                    showPoweredBy: false
+                    showPoweredBy: false,
+                    clientAllowedFormats: ALLOWED_FILE_TYPES,
+                    maxFileSize: MAX_FILE_SIZE
                   }}
                   onSuccess={handleUploadSuccess}
                   onClose={handleClose}
@@ -218,10 +265,16 @@ export default function AchievementUpload({
                   onWidgetReady={(widget: any) => {
                     setUploadWidget(widget);
                   }}
+                  onError={(error: any, widget: any) => {
+                    console.error('Upload error:', error);
+                    setError(error.message || 'Upload failed. Please try again.');
+                    setIsLoading(false);
+                  }}
                 >
                   {({ open }) => {
                     function handleOnClick() {
                       setIsLoading(true);
+                      setError(''); // Clear previous errors
                       open();
                     }
                     return (
@@ -248,7 +301,7 @@ export default function AchievementUpload({
                 </CldUploadWidget>
                 <div id="inline-container" className="w-full"></div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Upload a photo that represents your achievement. PNG, JPG or WEBP.
+                  Upload a photo that represents your achievement. Allowed formats: {ALLOWED_FILE_TYPES.join(', ')}. Max size: {MAX_FILE_SIZE / (1024 * 1024)}MB.
                 </p>
               </>
             ) : (
@@ -317,7 +370,9 @@ export default function AchievementUpload({
                       multiple: false,
                       maxFiles: 1,
                       inlineContainer: '#inline-container',
-                      showPoweredBy: false
+                      showPoweredBy: false,
+                      clientAllowedFormats: ALLOWED_FILE_TYPES,
+                      maxFileSize: MAX_FILE_SIZE
                     }}
                     onSuccess={handleUploadSuccess}
                     onClose={handleClose}
@@ -328,10 +383,16 @@ export default function AchievementUpload({
                     onWidgetReady={(widget: any) => {
                       setUploadWidget(widget);
                     }}
+                    onError={(error: any, widget: any) => {
+                      console.error('Upload error:', error);
+                      setError(error.message || 'Upload failed. Please try again.');
+                      setIsLoading(false);
+                    }}
                   >
                     {({ open }) => {
                       function handleOnClick() {
                         setIsLoading(true);
+                        setError(''); // Clear previous errors
                         open();
                       }
                       return (
@@ -358,7 +419,7 @@ export default function AchievementUpload({
                   </CldUploadWidget>
                   <div id="inline-container" className="w-full"></div>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Upload a photo that represents your achievement. PNG, JPG or WEBP.
+                    Upload a photo that represents your achievement. Allowed formats: {ALLOWED_FILE_TYPES.join(', ')}. Max size: {MAX_FILE_SIZE / (1024 * 1024)}MB.
                   </p>
                 </>
               ) : (
