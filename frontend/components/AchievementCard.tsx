@@ -29,7 +29,7 @@ interface Achievement {
   imagePublicId: string;
   createdAt: string;
   likes: number;
-  user: User;
+  user: User | null;
   hasLiked?: boolean;
 }
 
@@ -46,6 +46,16 @@ export default function AchievementCard({
   isLoading,
   isAuthenticated
 }: AchievementCardProps) {
+  // Check if user exists to avoid null references
+  const userExists = achievement.user !== null && achievement.user !== undefined;
+  const username = userExists ? (achievement.user.username || 'Anonymous') : 'Anonymous';
+  const firstName = userExists ? achievement.user.firstName : '';
+  const lastName = userExists ? achievement.user.lastName : '';
+  const displayName = firstName && lastName ? `${firstName} ${lastName}` : username;
+  const profilePicture = userExists ? achievement.user.profilePicture : undefined;
+  const userId = userExists ? achievement.user.id : 'anonymous';
+  const firstInitial = (firstName || username || 'A').charAt(0).toUpperCase();
+
   return (
     <Card className="overflow-hidden border rounded-xl transition-all duration-300 hover:shadow-md h-full flex flex-col">
       <div className="relative h-48 w-full">
@@ -82,25 +92,25 @@ export default function AchievementCard({
       <CardFooter className="flex justify-between pt-4">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-            {achievement.user?.profilePicture ? (
+            {profilePicture ? (
               <img 
-                src={achievement.user.profilePicture} 
-                alt={achievement.user.firstName || achievement.user.username} 
+                src={profilePicture} 
+                alt={displayName} 
                 className="w-full h-full object-cover"
               />
             ) : (
               <span className="text-xs font-semibold text-muted-foreground">
-                {(achievement.user?.firstName || achievement.user?.username || 'User').charAt(0).toUpperCase()}
+                {firstInitial}
               </span>
             )}
           </div>
-          <Link href={`/profile/${achievement.user.id}`} className="hover:underline">
-            <span className="text-sm font-medium">
-              {achievement.user?.firstName && achievement.user?.lastName 
-                ? `${achievement.user.firstName} ${achievement.user.lastName}` 
-                : achievement.user?.username || 'Anonymous User'}
-            </span>
-          </Link>
+          {userExists ? (
+            <Link href={`/profile/${userId}`} className="hover:underline">
+              <span className="text-sm font-medium">{displayName}</span>
+            </Link>
+          ) : (
+            <span className="text-sm font-medium text-muted-foreground">Anonymous User</span>
+          )}
         </div>
         <div className="flex gap-2">
           <TooltipProvider>
