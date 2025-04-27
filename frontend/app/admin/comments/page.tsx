@@ -75,6 +75,11 @@ const AdminCommentsPage = () => {
   const [editCommentText, setEditCommentText] = useState<string>("");
   const [commentGroups, setCommentGroups] = useState<CommentGroup[]>([]);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [formErrors, setFormErrors] = useState<{
+    achievement?: string;
+    comment?: string;
+  }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
 
   // Group comments by achievement
@@ -328,10 +333,8 @@ const AdminCommentsPage = () => {
         if (response.ok) {
           if (responseData?.localOnly) {
             // Backend doesn't actually support updates, but we're handling it locally
-            toast.success(
-              "Comment updated in UI only", 
-              { description: "Changes will not persist after page refresh due to backend limitations." }
-            );
+            toast.success("Comment updated in UI only");
+            // Note: Changes will not persist after page refresh due to backend limitations
           } else {
             toast.success("Comment updated successfully");
           }
@@ -381,12 +384,36 @@ const AdminCommentsPage = () => {
   };
 
   const handleAddComment = async () => {
-    if (!selectedAchievement || !commentText.trim()) {
-      toast.error("Please select an achievement and enter comment text");
+    // Reset previous errors
+    setFormErrors({});
+    
+    // Validate form
+    const errors: {
+      achievement?: string;
+      comment?: string;
+    } = {};
+    
+    if (!selectedAchievement) {
+      errors.achievement = "Please select an achievement";
+    }
+    
+    if (!commentText.trim()) {
+      errors.comment = "Please enter a comment";
+    } else if (commentText.trim().length < 3) {
+      errors.comment = "Comment must be at least 3 characters";
+    } else if (commentText.trim().length > 500) {
+      errors.comment = "Comment cannot exceed 500 characters";
+    }
+    
+    // If there are errors, update state and stop
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
       return;
     }
 
     try {
+      setIsSubmitting(true);
+      
       const token = localStorage.getItem('token');
       if (!token) {
         toast.error("Authentication required");
@@ -399,7 +426,7 @@ const AdminCommentsPage = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ text: commentText }),
+        body: JSON.stringify({ text: commentText.trim() }),
       });
 
       if (!response.ok) {
@@ -427,9 +454,12 @@ const AdminCommentsPage = () => {
       // Reset form
       setSelectedAchievement("");
       setCommentText("");
+      setFormErrors({});
     } catch (err: any) {
       console.error("Error adding comment:", err);
       toast.error(err.message || "Failed to add comment");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -460,14 +490,19 @@ const AdminCommentsPage = () => {
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="achievement" className="text-right">
-                  Achievement
+                  Achievement <span className="text-red-500">*</span>
                 </Label>
                 <div className="col-span-3">
                   <Select
                     value={selectedAchievement}
-                    onValueChange={setSelectedAchievement}
+                    onValueChange={(value) => {
+                      setSelectedAchievement(value);
+                      if (formErrors.achievement) {
+                        setFormErrors(prev => ({ ...prev, achievement: undefined }));
+                      }
+                    }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={formErrors.achievement ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select achievement" />
                     </SelectTrigger>
                     <SelectContent>
@@ -482,19 +517,35 @@ const AdminCommentsPage = () => {
                       )}
                     </SelectContent>
                   </Select>
+                  {formErrors.achievement && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.achievement}</p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="comment" className="text-right">
-                  Comment
+                  Comment <span className="text-red-500">*</span>
                 </Label>
-                <Textarea
-                  id="comment"
-                  className="col-span-3"
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Enter your comment..."
-                />
+                <div className="col-span-3">
+                  <Textarea
+                    id="comment"
+                    className={`${formErrors.comment ? "border-red-500" : ""}`}
+                    value={commentText}
+                    onChange={(e) => {
+                      setCommentText(e.target.value);
+                      if (formErrors.comment) {
+                        setFormErrors(prev => ({ ...prev, comment: undefined }));
+                      }
+                    }}
+                    placeholder="Enter your comment..."
+                  />
+                  {formErrors.comment && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.comment}</p>
+                  )}
+                  <p className="text-muted-foreground text-xs mt-1">
+                    {commentText.length}/500 characters
+                  </p>
+                </div>
               </div>
             </div>
             <DialogFooter>
@@ -503,8 +554,19 @@ const AdminCommentsPage = () => {
                   Cancel
                 </Button>
               </DialogClose>
-              <Button type="button" onClick={handleAddComment}>
-                Add Comment
+              <Button 
+                type="button" 
+                onClick={handleAddComment} 
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  "Add Comment"
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
