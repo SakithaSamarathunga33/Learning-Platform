@@ -316,7 +316,9 @@ export default function ProfilePage() {
       
       const token = localStorage.getItem('token');
       if (!token) {
-        throw new Error('Authentication required');
+        router.push('/login?redirect=/profile');
+        setPostsError('Please login to view your posts');
+        return;
       }
       
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -327,7 +329,16 @@ export default function ProfilePage() {
         cache: 'no-store'
       });
       
-      if (!response.ok) {
+      if (response.status === 401) {
+        // Unauthorized - token expired or invalid
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        router.push('/login?redirect=/profile');
+        throw new Error('Session expired. Please login again.');
+      } else if (response.status === 403) {
+        // Forbidden - user doesn't have permission 
+        throw new Error('You do not have permission to view these posts.');
+      } else if (!response.ok) {
         throw new Error(`Failed to fetch your posts (Status: ${response.status})`);
       }
       

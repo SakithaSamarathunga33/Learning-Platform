@@ -60,7 +60,7 @@ interface Achievement {
   imagePublicId: string;
   createdAt: string;
   likes: number;
-  user: User | null;
+  user: User;
   hasLiked?: boolean;
 }
 
@@ -147,7 +147,7 @@ export default function FeedPage() {
         achievement => 
           achievement.title.toLowerCase().includes(searchTermLower) ||
           achievement.description.toLowerCase().includes(searchTermLower) ||
-          achievement.user?.username.toLowerCase().includes(searchTermLower)
+          achievement.user.username.toLowerCase().includes(searchTermLower)
       );
     }
     
@@ -158,7 +158,7 @@ export default function FeedPage() {
     
     // Apply mine only filter
     if (showMineOnly && currentUserId) {
-      result = result.filter(achievement => achievement.user?.id === currentUserId);
+      result = result.filter(achievement => achievement.user.id === currentUserId);
     }
     
     // Apply sorting

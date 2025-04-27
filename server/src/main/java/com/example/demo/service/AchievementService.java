@@ -27,6 +27,11 @@ public class AchievementService {
                 .orElseThrow(() -> new RuntimeException("Achievement not found with id: " + id));
     }
 
+    // Add method to get achievements by userId
+    public List<Achievement> getAchievementsByUserId(String userId) {
+        return achievementRepository.findByUserId(userId);
+    }
+
     // Update the method to use String for the ID type
     public Achievement updateAchievement(String id, Achievement updatedAchievement) {
         Achievement achievement = getAchievementById(id);

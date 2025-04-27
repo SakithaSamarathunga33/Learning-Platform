@@ -45,6 +45,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/courses").permitAll()
                 .requestMatchers("/api/achievements").permitAll()
                 .requestMatchers("/api/achievements/{id}").permitAll()
+                .requestMatchers("/api/achievements/user/{userId}").authenticated()
                 .requestMatchers("/api/achievements/{id}/comments").permitAll()
                 .requestMatchers("/api/admin/**").authenticated()
                 .requestMatchers("/api/users/**").authenticated()
