@@ -708,75 +708,112 @@ export default function CoursesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 p-6 bg-slate-50 min-h-screen">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+        <h1 className="text-3xl font-bold tracking-tight">Courses Management</h1>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-2 bg-white shadow-sm hover:bg-gray-100" onClick={handleExportPDF}>
+            <Download className="h-4 w-4" />
+            Export PDF
+          </Button>
+          <Button size="sm" className="gap-2 bg-blue-600 hover:bg-blue-700" onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Add Course
+          </Button>
+        </div>
+      </div>
+
       {/* Stats Card */}
-      <Card className="bg-primary/5 border-primary/20 max-w-md">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-primary/10 rounded-full">
-              <BookOpen className="h-6 w-6 text-primary" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="bg-white border-none shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-100 rounded-full">
+                <BookOpen className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Total Courses</p>
+                <p className="text-3xl font-bold">{totalCourses}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Total Courses</p>
-              <p className="text-2xl font-bold">{totalCourses}</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-white border-none shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-green-100 rounded-full">
+                <Pencil className="h-6 w-6 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Published Courses</p>
+                <p className="text-3xl font-bold">{courses.filter(c => c.isPublished).length}</p>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-white border-none shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-amber-100 rounded-full">
+                <Filter className="h-6 w-6 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Draft Courses</p>
+                <p className="text-3xl font-bold">{courses.filter(c => !c.isPublished).length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Main Content */}
-      <Card>
+      <Card className="bg-white border-none shadow-md">
         <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8 bg-gray-50 p-4 rounded-lg">
+            <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+              <div className="relative w-full md:w-auto">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Search courses..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 w-[300px]"
+                  className="pl-10 w-full md:w-[300px] bg-white"
                 />
               </div>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="programming">Programming</SelectItem>
-                  <SelectItem value="design">Design</SelectItem>
-                  <SelectItem value="business">Business</SelectItem>
-                  <SelectItem value="marketing">Marketing</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="published">Published</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-2" onClick={handleExportPDF}>
-                <Download className="h-4 w-4" />
-                Export
-              </Button>
-              <Button size="sm" className="gap-2" onClick={() => setIsAddDialogOpen(true)}>
-                <Plus className="h-4 w-4" />
-                Add Course
-              </Button>
+              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-full md:w-[180px] bg-white">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    <SelectItem value="programming">Programming</SelectItem>
+                    <SelectItem value="design">Design</SelectItem>
+                    <SelectItem value="business">Business</SelectItem>
+                    <SelectItem value="marketing">Marketing</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full md:w-[180px] bg-white">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="published">Published</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
           {/* Course Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {currentCourses.map((course) => (
-              <Card key={course.id} className="group relative overflow-hidden">
+              <Card key={course.id} className="group relative overflow-hidden border-none shadow-lg hover:shadow-xl transition-all duration-300 bg-white">
                 <div className="relative h-48 w-full">
                   {course.thumbnailUrl ? (
                     <img
@@ -785,55 +822,58 @@ export default function CoursesPage() {
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   ) : (
-                    <div className="h-full w-full bg-muted flex items-center justify-center">
-                      <BookOpen className="h-12 w-12 text-muted-foreground" />
-        </div>
-      )}
-                  <div className="absolute top-2 right-2">
-                <input
+                    <div className="h-full w-full bg-gray-100 flex items-center justify-center">
+                      <BookOpen className="h-12 w-12 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="absolute top-2 right-2 z-10">
+                    <input
                       type="checkbox"
                       checked={selectedCourses.includes(course.id)}
                       onChange={() => handleSelectCourse(course.id)}
                       className="rounded border-gray-300 bg-white/90"
-                />
-              </div>
+                    />
+                  </div>
                 </div>
-                <CardContent className="p-4">
-                  <div className="space-y-2">
+                <CardContent className="p-5">
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold line-clamp-1">{course.title}</h3>
-                      <span className="font-medium">${course.price}</span>
+                      <h3 className="font-bold text-lg line-clamp-1">{course.title}</h3>
+                      <span className="font-bold text-blue-600">${course.price}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">{course.category}</Badge>
-                      <Badge variant={course.isPublished ? "default" : "secondary"}>
+                    <div className="flex items-center flex-wrap gap-2">
+                      <Badge variant="outline" className="bg-gray-100 text-gray-700 hover:bg-gray-200">{course.category}</Badge>
+                      <Badge variant={course.isPublished ? "default" : "secondary"} 
+                        className={course.isPublished ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-amber-100 text-amber-700 hover:bg-amber-200"}>
                         {course.isPublished ? "Published" : "Draft"}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span>{course.instructor?.username || 'Unknown Instructor'}</span>
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <span className="font-medium">{course.instructor?.username || 'Unknown Instructor'}</span>
                       <span>•</span>
                       <span>{course.students} students</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-yellow-500">★</span>
-                      <span className="text-sm">{course.rating}</span>
+                      <span className="text-sm font-medium">{course.rating}</span>
                     </div>
                     <div className="flex items-center justify-between pt-2">
-                      <span className="text-sm text-muted-foreground">{course.createdAt}</span>
+                      <span className="text-xs text-gray-500">{course.createdAt}</span>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-gray-100">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(course)}>
+                        <DropdownMenuContent align="end" className="w-[160px]">
+                          <DropdownMenuItem onClick={() => handleEdit(course)} className="cursor-pointer hover:bg-gray-100">
                             <Edit className="mr-2 h-4 w-4" />
                             Edit
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            className="text-red-600"
+                            className="text-red-500 cursor-pointer hover:bg-red-50"
                             onClick={() => handleDelete(course.id)}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
@@ -848,9 +888,25 @@ export default function CoursesPage() {
             ))}
           </div>
 
+          {/* Empty State */}
+          {currentCourses.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <BookOpen className="h-16 w-16 text-gray-300 mb-4" />
+              <h3 className="text-xl font-medium text-gray-600 mb-2">No courses found</h3>
+              <p className="text-gray-500 text-center mb-6">Try adjusting your search or filters</p>
+              <Button size="sm" onClick={() => {
+                setSearchQuery("");
+                setCategoryFilter("all");
+                setStatusFilter("all");
+              }}>
+                Reset Filters
+              </Button>
+            </div>
+          )}
+
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="mt-6">
+            <div className="mt-8 flex justify-center">
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>
@@ -864,6 +920,7 @@ export default function CoursesPage() {
                       <PaginationLink
                         onClick={() => handlePageChange(page)}
                         isActive={currentPage === page}
+                        className={currentPage === page ? "bg-blue-600" : ""}
                       >
                         {page}
                       </PaginationLink>
@@ -877,206 +934,222 @@ export default function CoursesPage() {
                   </PaginationItem>
                 </PaginationContent>
               </Pagination>
-              </div>
+            </div>
           )}
         </CardContent>
       </Card>
 
       {/* Add Course Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Add New Course</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-white rounded-lg">
+          <div className="bg-blue-600 p-6 text-white">
+            <DialogTitle className="text-xl font-bold">Add New Course</DialogTitle>
+            <DialogDescription className="text-blue-100 mt-1">
               Create a new course by filling out the form below.
             </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="title">Title <span className="text-red-500">*</span></Label>
-              <Input
-                id="title"
-                value={addForm.title}
-                onChange={(e) => setAddForm({ ...addForm, title: e.target.value })}
-                placeholder="Enter course title"
-                className={formErrors.title ? "border-red-500" : ""}
-              />
-              {formErrors.title && <p className="text-red-500 text-sm mt-1">{formErrors.title}</p>}
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description <span className="text-red-500">*</span></Label>
-              <Textarea
-                id="description"
-                value={addForm.description}
-                onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
-                placeholder="Enter course description"
-                className={`min-h-[100px] ${formErrors.description ? "border-red-500" : ""}`}
-              />
-              {formErrors.description && <p className="text-red-500 text-sm mt-1">{formErrors.description}</p>}
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="thumbnailUrl">Thumbnail URL</Label>
-              <Input
-                id="thumbnailUrl"
-                value={addForm.thumbnailUrl}
-                onChange={(e) => setAddForm({ ...addForm, thumbnailUrl: e.target.value })}
-                placeholder="Enter thumbnail URL"
-                className={formErrors.thumbnailUrl ? "border-red-500" : ""}
-              />
-              {formErrors.thumbnailUrl && <p className="text-red-500 text-sm mt-1">{formErrors.thumbnailUrl}</p>}
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="price">Price <span className="text-red-500">*</span></Label>
-              <Input
-                id="price"
-                type="number"
-                value={addForm.price}
-                onChange={(e) => setAddForm({ ...addForm, price: Number(e.target.value) })}
-                placeholder="Enter course price"
-                className={formErrors.price ? "border-red-500" : ""}
-                min="0"
-                step="0.01"
-              />
-              {formErrors.price && <p className="text-red-500 text-sm mt-1">{formErrors.price}</p>}
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="category">Category <span className="text-red-500">*</span></Label>
-              <Select
-                value={addForm.category}
-                onValueChange={(value) => setAddForm({ ...addForm, category: value })}
-              >
-                <SelectTrigger className={formErrors.category ? "border-red-500" : ""}>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="programming">Programming</SelectItem>
-                  <SelectItem value="design">Design</SelectItem>
-                  <SelectItem value="business">Business</SelectItem>
-                  <SelectItem value="marketing">Marketing</SelectItem>
-                </SelectContent>
-              </Select>
-              {formErrors.category && <p className="text-red-500 text-sm mt-1">{formErrors.category}</p>}
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="isPublished"
-                checked={addForm.isPublished}
-                onChange={(e) => setAddForm({ ...addForm, isPublished: e.target.checked })}
-                className="rounded border-gray-300"
-              />
-              <Label htmlFor="isPublished">Published</Label>
+          </div>
+          <div className="p-6">
+            <div className="grid gap-5 py-2">
+              <div className="grid gap-2">
+                <Label htmlFor="title" className="text-gray-700">Title <span className="text-red-500">*</span></Label>
+                <Input
+                  id="title"
+                  value={addForm.title}
+                  onChange={(e) => setAddForm({ ...addForm, title: e.target.value })}
+                  placeholder="Enter course title"
+                  className={`bg-gray-50 border ${formErrors.title ? "border-red-500" : "border-gray-200"}`}
+                />
+                {formErrors.title && <p className="text-red-500 text-sm mt-1">{formErrors.title}</p>}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="description" className="text-gray-700">Description <span className="text-red-500">*</span></Label>
+                <Textarea
+                  id="description"
+                  value={addForm.description}
+                  onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
+                  placeholder="Enter course description"
+                  className={`min-h-[100px] bg-gray-50 border ${formErrors.description ? "border-red-500" : "border-gray-200"}`}
+                />
+                {formErrors.description && <p className="text-red-500 text-sm mt-1">{formErrors.description}</p>}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="thumbnailUrl" className="text-gray-700">Thumbnail URL</Label>
+                <Input
+                  id="thumbnailUrl"
+                  value={addForm.thumbnailUrl}
+                  onChange={(e) => setAddForm({ ...addForm, thumbnailUrl: e.target.value })}
+                  placeholder="Enter thumbnail URL"
+                  className={`bg-gray-50 border ${formErrors.thumbnailUrl ? "border-red-500" : "border-gray-200"}`}
+                />
+                {formErrors.thumbnailUrl && <p className="text-red-500 text-sm mt-1">{formErrors.thumbnailUrl}</p>}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="price" className="text-gray-700">Price <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    value={addForm.price}
+                    onChange={(e) => setAddForm({ ...addForm, price: Number(e.target.value) })}
+                    placeholder="Enter course price"
+                    className={`bg-gray-50 border ${formErrors.price ? "border-red-500" : "border-gray-200"}`}
+                    min="0"
+                    step="0.01"
+                  />
+                  {formErrors.price && <p className="text-red-500 text-sm mt-1">{formErrors.price}</p>}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="category" className="text-gray-700">Category <span className="text-red-500">*</span></Label>
+                  <Select
+                    value={addForm.category}
+                    onValueChange={(value) => setAddForm({ ...addForm, category: value })}
+                  >
+                    <SelectTrigger className={`bg-gray-50 border ${formErrors.category ? "border-red-500" : "border-gray-200"}`}>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="programming">Programming</SelectItem>
+                      <SelectItem value="design">Design</SelectItem>
+                      <SelectItem value="business">Business</SelectItem>
+                      <SelectItem value="marketing">Marketing</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {formErrors.category && <p className="text-red-500 text-sm mt-1">{formErrors.category}</p>}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="isPublished"
+                  checked={addForm.isPublished}
+                  onChange={(e) => setAddForm({ ...addForm, isPublished: e.target.checked })}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <Label htmlFor="isPublished" className="text-gray-700">Published</Label>
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+          <DialogFooter className="p-6 bg-gray-50 border-t border-gray-100">
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="bg-white">
                 Cancel
             </Button>
-            <Button onClick={handleAddCourse}>Create Course</Button>
+            <Button onClick={handleAddCourse} className="bg-blue-600 hover:bg-blue-700">
+              Create Course
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Edit Course Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Course</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-white rounded-lg">
+          <div className="bg-blue-600 p-6 text-white">
+            <DialogTitle className="text-xl font-bold">Edit Course</DialogTitle>
+            <DialogDescription className="text-blue-100 mt-1">
               Make changes to the course details below.
             </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-title">Title <span className="text-red-500">*</span></Label>
-              <Input
-                id="edit-title"
-                value={editForm.title}
-                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                placeholder="Enter course title"
-                className={editFormErrors.title ? "border-red-500" : ""}
-              />
-              {editFormErrors.title && <p className="text-red-500 text-sm mt-1">{editFormErrors.title}</p>}
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-description">Description <span className="text-red-500">*</span></Label>
-              <Textarea
-                id="edit-description"
-                value={editForm.description}
-                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                placeholder="Enter course description"
-                className={`min-h-[100px] ${editFormErrors.description ? "border-red-500" : ""}`}
-              />
-              {editFormErrors.description && <p className="text-red-500 text-sm mt-1">{editFormErrors.description}</p>}
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-price">Price <span className="text-red-500">*</span></Label>
-              <Input
-                id="edit-price"
-                type="number"
-                value={editForm.price}
-                onChange={(e) => setEditForm({ ...editForm, price: Number(e.target.value) })}
-                placeholder="Enter course price"
-                className={editFormErrors.price ? "border-red-500" : ""}
-                min="0"
-                step="0.01"
-              />
-              {editFormErrors.price && <p className="text-red-500 text-sm mt-1">{editFormErrors.price}</p>}
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-thumbnail">Thumbnail URL</Label>
-              <Input
-                id="edit-thumbnail"
-                value={editForm.thumbnailUrl}
-                onChange={(e) => setEditForm({ ...editForm, thumbnailUrl: e.target.value })}
-                placeholder="Enter thumbnail URL"
-                className={editFormErrors.thumbnailUrl ? "border-red-500" : ""}
-              />
-              {editFormErrors.thumbnailUrl && <p className="text-red-500 text-sm mt-1">{editFormErrors.thumbnailUrl}</p>}
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-category">Category <span className="text-red-500">*</span></Label>
-              <Select
-                value={editForm.category}
-                onValueChange={(value) => setEditForm({ ...editForm, category: value })}
-              >
-                <SelectTrigger className={editFormErrors.category ? "border-red-500" : ""}>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="programming">Programming</SelectItem>
-                  <SelectItem value="design">Design</SelectItem>
-                  <SelectItem value="business">Business</SelectItem>
-                  <SelectItem value="marketing">Marketing</SelectItem>
-                </SelectContent>
-              </Select>
-              {editFormErrors.category && <p className="text-red-500 text-sm mt-1">{editFormErrors.category}</p>}
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="edit-isPublished"
-                checked={editForm.isPublished}
-                onChange={(e) => setEditForm({ ...editForm, isPublished: e.target.checked })}
-                className="rounded border-gray-300"
-              />
-              <Label htmlFor="edit-isPublished">Published</Label>
+          </div>
+          <div className="p-6">
+            <div className="grid gap-5 py-2">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-title" className="text-gray-700">Title <span className="text-red-500">*</span></Label>
+                <Input
+                  id="edit-title"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  placeholder="Enter course title"
+                  className={`bg-gray-50 border ${editFormErrors.title ? "border-red-500" : "border-gray-200"}`}
+                />
+                {editFormErrors.title && <p className="text-red-500 text-sm mt-1">{editFormErrors.title}</p>}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-description" className="text-gray-700">Description <span className="text-red-500">*</span></Label>
+                <Textarea
+                  id="edit-description"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  placeholder="Enter course description"
+                  className={`min-h-[100px] bg-gray-50 border ${editFormErrors.description ? "border-red-500" : "border-gray-200"}`}
+                />
+                {editFormErrors.description && <p className="text-red-500 text-sm mt-1">{editFormErrors.description}</p>}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-thumbnail" className="text-gray-700">Thumbnail URL</Label>
+                <Input
+                  id="edit-thumbnail"
+                  value={editForm.thumbnailUrl}
+                  onChange={(e) => setEditForm({ ...editForm, thumbnailUrl: e.target.value })}
+                  placeholder="Enter thumbnail URL"
+                  className={`bg-gray-50 border ${editFormErrors.thumbnailUrl ? "border-red-500" : "border-gray-200"}`}
+                />
+                {editFormErrors.thumbnailUrl && <p className="text-red-500 text-sm mt-1">{editFormErrors.thumbnailUrl}</p>}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-price" className="text-gray-700">Price <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="edit-price"
+                    type="number"
+                    value={editForm.price}
+                    onChange={(e) => setEditForm({ ...editForm, price: Number(e.target.value) })}
+                    placeholder="Enter course price"
+                    className={`bg-gray-50 border ${editFormErrors.price ? "border-red-500" : "border-gray-200"}`}
+                    min="0"
+                    step="0.01"
+                  />
+                  {editFormErrors.price && <p className="text-red-500 text-sm mt-1">{editFormErrors.price}</p>}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-category" className="text-gray-700">Category <span className="text-red-500">*</span></Label>
+                  <Select
+                    value={editForm.category}
+                    onValueChange={(value) => setEditForm({ ...editForm, category: value })}
+                  >
+                    <SelectTrigger className={`bg-gray-50 border ${editFormErrors.category ? "border-red-500" : "border-gray-200"}`}>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="programming">Programming</SelectItem>
+                      <SelectItem value="design">Design</SelectItem>
+                      <SelectItem value="business">Business</SelectItem>
+                      <SelectItem value="marketing">Marketing</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {editFormErrors.category && <p className="text-red-500 text-sm mt-1">{editFormErrors.category}</p>}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="edit-isPublished"
+                  checked={editForm.isPublished}
+                  onChange={(e) => setEditForm({ ...editForm, isPublished: e.target.checked })}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <Label htmlFor="edit-isPublished" className="text-gray-700">Published</Label>
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+          <DialogFooter className="p-6 bg-gray-50 border-t border-gray-100">
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="bg-white">
               Cancel
             </Button>
-            <Button onClick={handleEditSubmit}>Save changes</Button>
+            <Button onClick={handleEditSubmit} className="bg-blue-600 hover:bg-blue-700">
+              Save changes
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Alert */}
       {alert && (
-        <Alert variant={alert.type === 'success' ? 'default' : 'destructive'}>
-          <AlertTitle>{alert.title}</AlertTitle>
-          <AlertDescription>{alert.description}</AlertDescription>
+        <Alert variant={alert.type === 'success' ? 'default' : 'destructive'} 
+          className={`fixed bottom-4 right-4 w-96 shadow-lg ${
+            alert.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 
+            'bg-red-50 border-red-200 text-red-800'
+          }`}>
+          <AlertTitle className="text-lg font-semibold">{alert.title}</AlertTitle>
+          <AlertDescription className="text-sm">{alert.description}</AlertDescription>
         </Alert>
       )}
     </div>
