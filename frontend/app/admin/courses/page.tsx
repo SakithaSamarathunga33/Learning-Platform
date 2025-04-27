@@ -41,6 +41,7 @@ import {
   BookOpen,
   Loader2,
   Pencil,
+  CircleDollarSign
 } from "lucide-react"
 import {
   Dialog,
@@ -671,7 +672,7 @@ export default function CoursesPage() {
       course.category,
       course.instructor?.username || 'Unknown Instructor',
       course.isPublished ? 'Published' : 'Draft',
-      `$${course.price}`,
+      `₹ ${course.price}`,
       course.createdAt || new Date().toLocaleDateString()
     ]);
 
@@ -840,7 +841,10 @@ export default function CoursesPage() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="font-bold text-lg line-clamp-1">{course.title}</h3>
-                      <span className="font-bold text-blue-600">${course.price}</span>
+                      <span className="font-bold text-blue-600 flex items-center">
+                        <CircleDollarSign className="h-4 w-4 mr-1" />
+                        {course.price}
+                      </span>
                     </div>
                     <div className="flex items-center flex-wrap gap-2">
                       <Badge variant="outline" className="bg-gray-100 text-gray-700 hover:bg-gray-200">{course.category}</Badge>
@@ -985,17 +989,22 @@ export default function CoursesPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="price" className="text-gray-700">Price <span className="text-red-500">*</span></Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    value={addForm.price}
-                    onChange={(e) => setAddForm({ ...addForm, price: Number(e.target.value) })}
-                    placeholder="Enter course price"
-                    className={`bg-gray-50 border ${formErrors.price ? "border-red-500" : "border-gray-200"}`}
-                    min="0"
-                    step="0.01"
-                  />
+                  <Label htmlFor="price" className="text-gray-700">Price (₹) <span className="text-red-500">*</span></Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                      <CircleDollarSign className="h-4 w-4 text-gray-500" />
+                    </span>
+                    <Input
+                      id="price"
+                      type="number"
+                      value={addForm.price}
+                      onChange={(e) => setAddForm({ ...addForm, price: Number(e.target.value) })}
+                      placeholder="Enter course price"
+                      className={`pl-10 bg-gray-50 border ${formErrors.price ? "border-red-500" : "border-gray-200"}`}
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
                   {formErrors.price && <p className="text-red-500 text-sm mt-1">{formErrors.price}</p>}
                 </div>
                 <div className="grid gap-2">
@@ -1086,17 +1095,22 @@ export default function CoursesPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="edit-price" className="text-gray-700">Price <span className="text-red-500">*</span></Label>
-                  <Input
-                    id="edit-price"
-                    type="number"
-                    value={editForm.price}
-                    onChange={(e) => setEditForm({ ...editForm, price: Number(e.target.value) })}
-                    placeholder="Enter course price"
-                    className={`bg-gray-50 border ${editFormErrors.price ? "border-red-500" : "border-gray-200"}`}
-                    min="0"
-                    step="0.01"
-                  />
+                  <Label htmlFor="edit-price" className="text-gray-700">Price (₹) <span className="text-red-500">*</span></Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                      <CircleDollarSign className="h-4 w-4 text-gray-500" />
+                    </span>
+                    <Input
+                      id="edit-price"
+                      type="number"
+                      value={editForm.price}
+                      onChange={(e) => setEditForm({ ...editForm, price: Number(e.target.value) })}
+                      placeholder="Enter course price"
+                      className={`pl-10 bg-gray-50 border ${editFormErrors.price ? "border-red-500" : "border-gray-200"}`}
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
                   {editFormErrors.price && <p className="text-red-500 text-sm mt-1">{editFormErrors.price}</p>}
                 </div>
                 <div className="grid gap-2">
