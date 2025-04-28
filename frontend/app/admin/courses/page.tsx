@@ -289,8 +289,8 @@ export default function CoursesPage() {
       if (!editForm.description.trim()) {
         newErrors.description = "Course description is required";
         hasErrors = true;
-      } else if (editForm.description.length < 20) {
-        newErrors.description = "Description must be at least 20 characters";
+      } else if (editForm.description.length < 10) {
+        newErrors.description = "Description must be at least 10 characters";
         hasErrors = true;
       }
       
@@ -520,8 +520,8 @@ export default function CoursesPage() {
       if (!addForm.description.trim()) {
         newErrors.description = "Course description is required";
         hasErrors = true;
-      } else if (addForm.description.length < 20) {
-        newErrors.description = "Description must be at least 20 characters";
+      } else if (addForm.description.length < 10) {
+        newErrors.description = "Description must be at least 10 characters";
         hasErrors = true;
       }
       
