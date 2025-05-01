@@ -6,6 +6,8 @@ import Link from 'next/link';
 import api from '@/utils/api'; // Import the configured axios instance
 import { FiSend, FiX } from 'react-icons/fi';
 import { BsChat, BsArrowLeft } from 'react-icons/bs';
+import { HiTrash } from 'react-icons/hi';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface User {
   id: string;
@@ -109,6 +111,72 @@ const ChatWindow = ({ recipient, onClose, isModal = false }: ChatWindowProps) =>
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Add function to handle conversation deletion
+  const handleDeleteConversation = async () => {
+    if (confirm(`Are you sure you want to delete your conversation with ${recipient.name}?`)) {
+      try {
+        setLoading(true);
+        
+        // Try to delete on the server
+        try {
+          await api.delete(`/api/messages/conversation/${recipient.username}`);
+        } catch (err) {
+          console.error('Error deleting conversation on server:', err);
+          // Continue with local deletion even if server deletion fails
+        }
+        
+        // Delete locally regardless of server response
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        
+        // Remove ALL possible localStorage keys for this conversation
+        // Standard key format
+        localStorage.removeItem(`messages_${currentUser.id}_${recipient.id}`);
+        
+        // Delete flag
+        localStorage.removeItem(`messages_${currentUser.id}_${recipient.id}_deleted`);
+        
+        // Alternative key formats that might exist
+        localStorage.removeItem(`chat_${currentUser.id}_${recipient.id}`);
+        localStorage.removeItem(`chat_${currentUser.username}_${recipient.username}`);
+        
+        // Backward compatibility for other formats
+        localStorage.removeItem(`messages_${recipient.id}`);
+        localStorage.removeItem(`messages_${recipient.username}`);
+        localStorage.removeItem(`messages_${currentUser.id}_${recipient.username}`);
+        
+        // Force clean LocalStorage for any keys containing this user's ID
+        Object.keys(localStorage).forEach(key => {
+          if (key.includes(recipient.id) || key.includes(recipient.username)) {
+            localStorage.removeItem(key);
+          }
+        });
+        
+        // Create a custom event to notify other components about the deleted conversation
+        const event = new CustomEvent('conversationDeleted', { 
+          detail: { 
+            userId: recipient.id,
+            username: recipient.username
+          } 
+        });
+        window.dispatchEvent(event);
+        
+        // Clear messages
+        setMessages([]);
+        
+        // Close the chat window if in modal
+        if (onClose) {
+          onClose();
+        }
+        
+        setLoading(false);
+      } catch (err) {
+        setError('Failed to delete conversation');
+        setLoading(false);
+        console.error('Error deleting conversation:', err);
+      }
+    }
+  };
+
   return (
     <div className={`flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${isModal ? 'h-full' : 'h-[calc(100vh-180px)]'}`}>
       {/* Chat Header */}
@@ -121,21 +189,10 @@ const ChatWindow = ({ recipient, onClose, isModal = false }: ChatWindowProps) =>
           )}
           
           <Link href={`/profile/${recipient.username}`} className="flex items-center gap-3">
-            {recipient.avatarUrl ? (
-              <Image 
-                src={recipient.avatarUrl} 
-                alt={recipient.name} 
-                width={40} 
-                height={40} 
-                className="rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-[40px] h-[40px] bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                <span className="text-lg font-bold text-gray-700 dark:text-gray-300">
-                  {recipient.name.charAt(0)}
-                </span>
-              </div>
-            )}
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={recipient.avatarUrl} alt={recipient.name} />
+              <AvatarFallback>{recipient.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+            </Avatar>
             
             <div>
               <h3 className="font-medium">{recipient.name}</h3>
@@ -144,11 +201,21 @@ const ChatWindow = ({ recipient, onClose, isModal = false }: ChatWindowProps) =>
           </Link>
         </div>
         
-        {onClose && !isModal && (
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-            <FiX size={20} />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDeleteConversation}
+            className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+            title="Delete this conversation"
+          >
+            <HiTrash size={20} />
           </button>
-        )}
+          
+          {onClose && !isModal && (
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+              <FiX size={20} />
+            </button>
+          )}
+        </div>
       </div>
       
       {/* Messages */}
@@ -200,23 +267,19 @@ const ChatWindow = ({ recipient, onClose, isModal = false }: ChatWindowProps) =>
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message..."
             className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700"
-            disabled={loading && messages.length === 0}
+            required
           />
           <button
             type="submit"
-            className="bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600 transition flex items-center justify-center w-10 h-10"
-            disabled={!newMessage.trim() || (loading && messages.length === 0)}
+            className="bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600 transition"
+            disabled={!newMessage.trim()}
           >
             <FiSend size={20} />
           </button>
         </div>
-        
-        {error && (
-          <p className="text-sm text-red-500 mt-2">{error}</p>
-        )}
       </form>
     </div>
   );
 };
 
-export default ChatWindow; 
+export default ChatWindow;
