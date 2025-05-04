@@ -9,12 +9,14 @@ import { HiPencil, HiTrash } from 'react-icons/hi';
 import { useMessages } from '@/context/MessagesContext';
 import api from '@/utils/api'; // Import the configured axios instance
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { HfInference } from '@huggingface/inference';
 
 interface User {
   id: string;
   username: string;
   name: string;
   avatarUrl: string;
+  isBot?: boolean; // Flag to identify bot users
 }
 
 interface Message {
@@ -36,6 +38,85 @@ interface Conversation {
   unreadCount: number;
 }
 
+// Add chatbot user
+const CHATBOT_USER: User = {
+  id: 'chatbot-ai',
+  username: 'ai-assistant',
+  name: 'AI Assistant',
+  avatarUrl: '/assets/bot-avatar.png', // Replace with an actual bot avatar path
+  isBot: true
+};
+
+// After the CHATBOT_USER definition, add OpenRouter configuration
+const OPENROUTER_API_KEY = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || "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";
+const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const MODEL_NAME = "deepseek/deepseek-chat-v3-0324:free";
+
+// Add fallback responses when AI model is unavailable
+const fallbackResponses = {
+  greeting: [
+    "Hello! How can I help you today?",
+    "Hi there! What can I assist you with?",
+    "Welcome! How may I help you?",
+    "Greetings! What would you like to know?"
+  ],
+  default: [
+    "That's an interesting question. Let me think about that.",
+    "I understand what you're asking. Let me provide some information.",
+    "Thanks for your question. Here's what I can tell you.",
+    "I appreciate your inquiry. Let me share what I know."
+  ],
+  unsure: [
+    "I'm not sure I understand. Could you please rephrase that?",
+    "I don't have enough information to answer that properly.",
+    "I'm having trouble understanding your question. Could you try asking differently?",
+    "I don't have a specific answer for that at the moment."
+  ],
+  aboutWebsite: [
+    "This is a learning platform where you can take courses, earn achievements, connect with other learners, and track your educational progress.",
+    "Our platform offers various educational courses and allows you to connect with fellow students while tracking your achievements.",
+    "This website helps you learn new skills, earn certificates, and connect with a community of learners."
+  ]
+};
+
+// Get a random response from a category
+const getRandomResponse = (category: keyof typeof fallbackResponses) => {
+  const responses = fallbackResponses[category];
+  return responses[Math.floor(Math.random() * responses.length)];
+};
+
+// Get a fallback response based on message content
+const getFallbackResponse = (message: string) => {
+  const messageLower = message.toLowerCase();
+  
+  // Check for greetings
+  if (messageLower.match(/^(hello|hi|hey|greetings|howdy)/)) {
+    return getRandomResponse('greeting');
+  }
+  
+  // Check for questions about the website
+  if (messageLower.includes("website") || 
+      messageLower.includes("platform") || 
+      messageLower.includes("this site") ||
+      messageLower.includes("about this") ||
+      messageLower.includes("what is this")) {
+    return getRandomResponse('aboutWebsite');
+  }
+  
+  // Check if message has question words but no clear topic
+  if ((messageLower.includes("what") || 
+       messageLower.includes("how") || 
+       messageLower.includes("why") || 
+       messageLower.includes("when") || 
+       messageLower.includes("where")) && 
+      messageLower.length < 15) {
+    return getRandomResponse('unsure');
+  }
+  
+  // Default response
+  return getRandomResponse('default');
+};
+
 const MessagesPage = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -49,6 +130,8 @@ const MessagesPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
+  const [botTyping, setBotTyping] = useState(false);
+  const [conversationHistory, setConversationHistory] = useState<string>("");
   
   // Load messages from local storage
   useEffect(() => {
@@ -343,6 +426,172 @@ const MessagesPage = () => {
     }
   };
 
+  // Add function to check if a user is a chatbot
+  const isChatBot = (user?: User): boolean => {
+    return user?.isBot === true || user?.id === CHATBOT_USER.id;
+  };
+
+  // Add a function to handle sending a message to the AI bot
+  const handleSendToChatbot = async (userMessage: string) => {
+    if (!selectedChat) return;
+    
+    setBotTyping(true);
+
+    try {
+      // Keep track of conversation history for context
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const localStorageKey = `messages_${currentUser.id}_${CHATBOT_USER.id}`;
+      const savedMessages = localStorage.getItem(localStorageKey) || '[]';
+      let previousMessages: Message[] = JSON.parse(savedMessages);
+      
+      // Add current user message to history
+      const userMessageObj: Message = {
+        id: `user-${Date.now()}`,
+        content: userMessage,
+        timestamp: new Date().toISOString(),
+        read: true,
+        sender: {
+          id: currentUser.id,
+          name: currentUser.name,
+          username: currentUser.username,
+          avatarUrl: currentUser.avatarUrl
+        },
+        recipient: CHATBOT_USER,
+        isLocal: true
+      };
+      
+      // Handle special queries directly without API calls
+      const userMessageLower = userMessage.toLowerCase();
+      let specialResponse = null;
+      
+      // Time and date related responses
+      if (userMessageLower.includes("time") && 
+          (userMessageLower.includes("what") || userMessageLower.includes("current") || userMessageLower.includes("now"))) {
+        const now = new Date();
+        specialResponse = `The current time is ${now.toLocaleTimeString()}.`;
+      }
+      else if (userMessageLower.includes("date") && 
+              (userMessageLower.includes("what") || userMessageLower.includes("current") || userMessageLower.includes("today"))) {
+        const now = new Date();
+        specialResponse = `Today's date is ${now.toLocaleDateString(undefined, {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'})}.`;
+      }
+      else if ((userMessageLower.includes("day") || userMessageLower.includes("today")) && 
+              (userMessageLower.includes("what") || userMessageLower.includes("which"))) {
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const now = new Date();
+        specialResponse = `Today is ${days[now.getDay()]}.`;
+      }
+      // Website-specific responses
+      else if (userMessageLower.includes("what is this website") || 
+          userMessageLower.includes("about this website") ||
+          userMessageLower.includes("this website for") ||
+          userMessageLower.includes("purpose") ||
+          userMessageLower.includes("what does this website")) {
+        specialResponse = "This is a learning platform where you can take courses, earn achievements, connect with other learners, and track your educational progress. You can browse courses, share your achievements, message other users, and participate in the community.";
+      }
+
+      // Get or generate bot response
+      let botResponse = '';
+      if (specialResponse) {
+        // Use the special response if we have one
+        botResponse = specialResponse;
+      } else if (OPENROUTER_API_KEY) {
+        try {
+          // Format the conversation history for OpenRouter API
+          const formattedMessages = previousMessages.map(msg => ({
+            role: isChatBot(msg.sender) ? "assistant" : "user",
+            content: msg.content
+          }));
+          
+          // Add current message
+          formattedMessages.push({
+            role: "user",
+            content: userMessage
+          });
+          
+          // Call OpenRouter API
+          const response = await fetch(OPENROUTER_API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+              'HTTP-Referer': window.location.origin,
+              'X-Title': 'Learning Platform Chat'
+            },
+            body: JSON.stringify({
+              model: MODEL_NAME,
+              messages: formattedMessages,
+              temperature: 0.7,
+              max_tokens: 500
+            })
+          });
+          
+          if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+          }
+          
+          const data = await response.json();
+          botResponse = data.choices[0]?.message?.content || "";
+          
+          if (!botResponse) {
+            throw new Error("Empty response from API");
+          }
+        } catch (error) {
+          console.warn("AI model error, using fallback:", error);
+          botResponse = getFallbackResponse(userMessage);
+        }
+      } else {
+        // Use fallback if no API key
+        botResponse = getFallbackResponse(userMessage);
+      }
+
+      // Create the bot message object
+      const botMessage: Message = {
+        id: `bot-${Date.now()}`,
+        content: botResponse,
+        timestamp: new Date().toISOString(),
+        read: true,
+        sender: CHATBOT_USER,
+        recipient: {
+          id: currentUser.id,
+          name: currentUser.name,
+          username: currentUser.username,
+          avatarUrl: currentUser.avatarUrl
+        },
+        isLocal: true
+      };
+
+      // Add user message to list first
+      setMessages(prev => {
+        const withUserMsg = [...prev, userMessageObj];
+        return withUserMsg;
+      });
+      
+      // Update the message list with the bot's response after a short delay
+      setTimeout(() => {
+        setMessages(prev => {
+          const updatedMessages = [...prev, botMessage];
+          updatedMessages.sort((a, b) => 
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+          return updatedMessages;
+        });
+        
+        setBotTyping(false);
+      }, 1000);
+
+      // Save both messages to local storage
+      const updatedLocalMessages = [...previousMessages, userMessageObj, botMessage];
+      localStorage.setItem(localStorageKey, JSON.stringify(updatedLocalMessages));
+
+    } catch (err) {
+      console.error('Chat error:', err);
+      setError("The AI assistant encountered an error. Please try again.");
+      setBotTyping(false);
+    }
+  };
+
+  // Modify handleSendMessage to work with the chatbot
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -389,16 +638,75 @@ const MessagesPage = () => {
         )
       );
       
-      // Send to server
-      await api.post(`/api/messages/send/${selectedChat.username}`, {
-        content: newMessage
-      });
-      
-      // Refresh the conversations to update with server data
-      fetchConversations();
+      // If sending to a regular user, use the API
+      if (!isChatBot(selectedChat)) {
+        await api.post(`/api/messages/send/${selectedChat.username}`, {
+          content: newMessage
+        });
+        
+        // Refresh the conversations to update with server data
+        fetchConversations();
+      } 
+      // If sending to the chatbot, handle it locally
+      else {
+        // Store the message locally since chatbot is handled client-side
+        const localStorageKey = `messages_${currentUser.id}_${selectedChat.id}`;
+        const savedMessages = localStorage.getItem(localStorageKey) || '[]';
+        let localMessages: Message[] = JSON.parse(savedMessages);
+        localMessages.push({...tempMessage, isLocal: true});
+        localStorage.setItem(localStorageKey, JSON.stringify(localMessages));
+        
+        // Get response from chatbot
+        await handleSendToChatbot(newMessage);
+      }
     } catch (err) {
       setError('Failed to send message');
       console.error('Error sending message:', err);
+    }
+  };
+
+  // Add a function to start a chat with the AI bot
+  const startBotChat = () => {
+    // Check if we already have a conversation with the bot
+    const existingBotConversation = conversations.find(conv => 
+      conv.user.id === CHATBOT_USER.id
+    );
+
+    if (existingBotConversation) {
+      setSelectedChat(existingBotConversation.user);
+    } else {
+      // Create a new bot conversation
+      const botConversation: Conversation = {
+        user: CHATBOT_USER,
+        lastMessage: {
+          id: `welcome-${Date.now()}`,
+          content: "Hello! How can I help you today?",
+          timestamp: new Date().toISOString(),
+          read: true,
+          sender: CHATBOT_USER,
+          recipient: JSON.parse(localStorage.getItem('user') || '{}')
+        },
+        unreadCount: 0
+      };
+
+      // Add to conversations list
+      setConversations(prev => [...prev, botConversation]);
+      
+      // Select the bot chat
+      setSelectedChat(CHATBOT_USER);
+      
+      // Initialize with welcome message
+      const welcomeMessage: Message = {
+        ...botConversation.lastMessage,
+        isLocal: true
+      };
+      
+      setMessages([welcomeMessage]);
+      
+      // Save to local storage
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const localStorageKey = `messages_${currentUser.id}_${CHATBOT_USER.id}`;
+      localStorage.setItem(localStorageKey, JSON.stringify([welcomeMessage]));
     }
   };
 
@@ -804,9 +1112,16 @@ const MessagesPage = () => {
         <div className="w-full md:w-1/3 bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-lg font-semibold">Conversations</h2>
+            <button 
+              onClick={startBotChat}
+              className="mt-2 w-full py-2 px-4 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg flex items-center justify-center gap-2 transition-colors"
+            >
+              <BsChat />
+              <span>Chat with AI Assistant</span>
+            </button>
           </div>
           
-          <div className="overflow-y-auto h-[calc(100vh-250px)]">
+          <div className="overflow-y-auto h-[calc(100vh-300px)]">
             {conversations.length === 0 ? (
               <div className="p-4 text-center text-gray-500">
                 <BsChat className="mx-auto text-4xl mb-2" />
@@ -820,11 +1135,11 @@ const MessagesPage = () => {
                     selectedChat && selectedChat.id === conversation.user.id 
                       ? 'bg-gray-100 dark:bg-gray-700' 
                       : ''
-                  }`}
+                  } ${isChatBot(conversation.user) ? 'border-l-4 border-blue-500' : ''}`}
                   onClick={() => setSelectedChat(conversation.user)}
                 >
                   <div className="relative">
-                    <Avatar className="h-10 w-10">
+                    <Avatar className={`h-10 w-10 ${isChatBot(conversation.user) ? 'bg-blue-100 text-blue-600' : ''}`}>
                       <AvatarImage src={conversation.user.avatarUrl} alt={conversation.user.name} />
                       <AvatarFallback>{getInitials(conversation.user.name)}</AvatarFallback>
                     </Avatar>
@@ -835,7 +1150,12 @@ const MessagesPage = () => {
                     )}
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-medium">{conversation.user.name}</h3>
+                    <h3 className="font-medium flex items-center gap-1">
+                      {conversation.user.name}
+                      {isChatBot(conversation.user) && (
+                        <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">AI</span>
+                      )}
+                    </h3>
                     <p className="text-sm text-gray-500 truncate">
                       {conversation.lastMessage ? conversation.lastMessage.content : 'No messages yet'}
                     </p>
@@ -853,22 +1173,31 @@ const MessagesPage = () => {
               {/* Chat Header */}
               <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Avatar className="h-10 w-10">
+                  <Avatar className={`h-10 w-10 ${isChatBot(selectedChat) ? 'bg-blue-100 text-blue-600' : ''}`}>
                     <AvatarImage src={selectedChat.avatarUrl} alt={selectedChat.name} />
                     <AvatarFallback>{getInitials(selectedChat.name)}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <h2 className="font-medium">{selectedChat.name}</h2>
-                    <p className="text-sm text-gray-500">@{selectedChat.username}</p>
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-medium">{selectedChat.name}</h2>
+                      {isChatBot(selectedChat) && (
+                        <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">AI</span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      {isChatBot(selectedChat) ? 'AI Assistant' : `@${selectedChat.username}`}
+                    </p>
                   </div>
                 </div>
-                <button
-                  onClick={handleDeleteConversation}
-                  className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-                  title="Delete this conversation"
-                >
-                  <HiTrash size={20} />
-                </button>
+                {!isChatBot(selectedChat) && (
+                  <button
+                    onClick={handleDeleteConversation}
+                    className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                    title="Delete this conversation"
+                  >
+                    <HiTrash size={20} />
+                  </button>
+                )}
               </div>
               
               {/* Messages Area */}
@@ -882,6 +1211,7 @@ const MessagesPage = () => {
                 ) : (
                   filteredMessages.map((message) => {
                     const isCurrentUser = message.sender.username !== selectedChat.username;
+                    const isBot = isChatBot(message.sender);
                     
                     return (
                       <div 
@@ -892,7 +1222,9 @@ const MessagesPage = () => {
                           className={`relative max-w-[70%] rounded-lg p-3 group 
                             ${isCurrentUser 
                               ? 'bg-blue-500 text-white rounded-tr-none' 
-                              : 'bg-gray-200 dark:bg-gray-700 rounded-tl-none'
+                              : isBot
+                                ? 'bg-blue-100 text-blue-800 rounded-tl-none border border-blue-200'
+                                : 'bg-gray-200 dark:bg-gray-700 rounded-tl-none'
                             } 
                             ${isEditNotification(message.content) 
                               ? 'border-l-4 border-amber-400 dark:border-amber-600' 
@@ -927,7 +1259,13 @@ const MessagesPage = () => {
                               {isEditNotification(message.content) ? (
                                 <div>
                                   <p>{extractEditedContent(message.content)}</p>
-                                  <div className={`text-xs mt-1 flex items-center ${isCurrentUser ? 'text-blue-100' : 'text-gray-500'}`}>
+                                  <div className={`text-xs mt-1 flex items-center ${
+                                    isCurrentUser 
+                                      ? 'text-blue-100' 
+                                      : isBot 
+                                        ? 'text-blue-600' 
+                                        : 'text-gray-500'
+                                  }`}>
                                     <span className="italic opacity-80 mr-2">{formatTimestamp(message.timestamp)}</span>
                                     <span className="bg-amber-400 dark:bg-amber-600 text-xs px-1.5 py-0.5 rounded-full text-white">
                                       edited
@@ -937,7 +1275,13 @@ const MessagesPage = () => {
                               ) : (
                                 <>
                                   <p>{message.content}</p>
-                                  <div className={`text-xs mt-1 ${isCurrentUser ? 'text-blue-100' : 'text-gray-500'}`}>
+                                  <div className={`text-xs mt-1 ${
+                                    isCurrentUser 
+                                      ? 'text-blue-100' 
+                                      : isBot 
+                                        ? 'text-blue-600' 
+                                        : 'text-gray-500'
+                                  }`}>
                                     {formatTimestamp(message.timestamp)}
                                     {message.edited && <span className="ml-2 italic opacity-80">(edited)</span>}
                                   </div>
@@ -945,7 +1289,7 @@ const MessagesPage = () => {
                               )}
                               
                               {/* Action buttons (only visible on hover and for current user's messages) */}
-                              {isCurrentUser && (
+                              {isCurrentUser && !isBot && (
                                 <div className="absolute -top-2 -right-2 hidden group-hover:flex gap-1 bg-white dark:bg-gray-800 rounded-full shadow-md p-0.5">
                                   {!isEditNotification(message.content) && (
                                     <button 
@@ -972,6 +1316,20 @@ const MessagesPage = () => {
                     );
                   })
                 )}
+                {botTyping && (
+                  <div className="flex justify-start">
+                    <div className="bg-blue-100 text-blue-800 border border-blue-200 rounded-lg p-3 rounded-tl-none max-w-[70%]">
+                      <div className="flex items-center gap-2">
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 rounded-full bg-blue-600 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                          <div className="w-2 h-2 rounded-full bg-blue-600 animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                          <div className="w-2 h-2 rounded-full bg-blue-600 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                        </div>
+                        <span className="text-sm">AI is typing...</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* Message Input */}
@@ -981,14 +1339,14 @@ const MessagesPage = () => {
                     type="text"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Type a message..."
+                    placeholder={`Message ${isChatBot(selectedChat) ? 'AI Assistant' : selectedChat.name}...`}
                     className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700"
                     required
                   />
                   <button
                     type="submit"
                     className="bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600 transition"
-                    disabled={!newMessage.trim()}
+                    disabled={!newMessage.trim() || botTyping}
                   >
                     <FiSend size={20} />
                   </button>
