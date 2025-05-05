@@ -8,6 +8,7 @@ import { ThemeProvider } from '@/app/providers/ThemeProvider';
 import { MessagesProvider } from '@/context/MessagesContext';
 import { usePathname } from 'next/navigation';
 import { Toaster } from '@/components/ui/toaster';
+import FloatingChatBot from '@/components/FloatingChatBot';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -27,6 +28,7 @@ export default function RootLayout({
             {!isAdminRoute && <Navbar />}
             <main className="flex-grow">{children}</main>
             {!isAdminRoute && <Footer />}
+            {!isAdminRoute && <FloatingChatBot />}
             <Toaster />
           </MessagesProvider>
         </ThemeProvider>
