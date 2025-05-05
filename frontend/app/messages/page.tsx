@@ -9,7 +9,6 @@ import { HiPencil, HiTrash } from 'react-icons/hi';
 import { useMessages } from '@/context/MessagesContext';
 import api from '@/utils/api'; // Import the configured axios instance
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { HfInference } from '@huggingface/inference';
 
 interface User {
   id: string;
