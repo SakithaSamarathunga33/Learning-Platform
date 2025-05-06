@@ -650,7 +650,7 @@ const MessagesPage = () => {
         });
         
         // Refresh the conversations to update with server data
-        fetchConversations();
+      fetchConversations();
       } 
       // If sending to the chatbot, handle it locally
       else {
@@ -1151,9 +1151,9 @@ const MessagesPage = () => {
                     {conversation.unreadCount > 0 && (
                       <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                         {conversation.unreadCount}
-                      </span>
+                        </span>
                     )}
-                  </div>
+                      </div>
                   <div className="flex-1">
                     <h3 className="font-medium flex items-center gap-1">
                       {conversation.user.name}
@@ -1161,9 +1161,9 @@ const MessagesPage = () => {
                         <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">AI</span>
                       )}
                     </h3>
-                    <p className="text-sm text-gray-500 truncate">
+                      <p className="text-sm text-gray-500 truncate">
                       {conversation.lastMessage ? conversation.lastMessage.content : 'No messages yet'}
-                    </p>
+                      </p>
                   </div>
                 </div>
               ))
@@ -1182,13 +1182,13 @@ const MessagesPage = () => {
                     <AvatarImage src={selectedChat.avatarUrl} alt={selectedChat.name} />
                     <AvatarFallback>{getInitials(selectedChat.name)}</AvatarFallback>
                   </Avatar>
-                  <div>
+                <div>
                     <div className="flex items-center gap-2">
                       <h2 className="font-medium">{selectedChat.name}</h2>
                       {isChatBot(selectedChat) && (
                         <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">AI</span>
                       )}
-                    </div>
+                </div>
                     <p className="text-sm text-gray-500">
                       {isChatBot(selectedChat) ? 'AI Assistant' : `@${selectedChat.username}`}
                     </p>
@@ -1229,7 +1229,7 @@ const MessagesPage = () => {
                               ? 'bg-blue-500 text-white rounded-tr-none' 
                               : isBot
                                 ? 'bg-blue-100 text-blue-800 rounded-tl-none border border-blue-200'
-                                : 'bg-gray-200 dark:bg-gray-700 rounded-tl-none'
+                              : 'bg-gray-200 dark:bg-gray-700 rounded-tl-none'
                             } 
                             ${isEditNotification(message.content) 
                               ? 'border-l-4 border-amber-400 dark:border-amber-600' 
@@ -1279,7 +1279,7 @@ const MessagesPage = () => {
                                 </div>
                               ) : (
                                 <>
-                                  <p>{message.content}</p>
+                          <p>{message.content}</p>
                                   <div className={`text-xs mt-1 ${
                                     isCurrentUser 
                                       ? 'text-blue-100' 
@@ -1287,9 +1287,9 @@ const MessagesPage = () => {
                                         ? 'text-blue-600' 
                                         : 'text-gray-500'
                                   }`}>
-                                    {formatTimestamp(message.timestamp)}
+                            {formatTimestamp(message.timestamp)}
                                     {message.edited && <span className="ml-2 italic opacity-80">(edited)</span>}
-                                  </div>
+                          </div>
                                 </>
                               )}
                               

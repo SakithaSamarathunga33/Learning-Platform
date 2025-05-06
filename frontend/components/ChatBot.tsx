@@ -219,7 +219,7 @@ export default function ChatBot() {
             body: JSON.stringify({
               model: MODEL_NAME,
               messages: formattedMessages,
-              temperature: 0.7,
+          temperature: 0.7,
               max_tokens: 500
             })
           });
