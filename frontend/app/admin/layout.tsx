@@ -35,6 +35,7 @@ import {
   DollarSign,
   Pencil,
   Upload,
+  MessageCircle,
 } from "lucide-react";
 import { logout } from "@/utils/auth";
 import { Toaster } from "sonner";
@@ -91,6 +92,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       title: "Media",
       href: "/admin/media",
       icon: <Upload className="h-5 w-5" />,
+    },
+    {
+      title: "Feedback",
+      href: "/admin/feedback",
+      icon: <MessageCircle className="h-5 w-5" />,
     },
   ];
 
