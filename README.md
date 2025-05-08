@@ -34,6 +34,7 @@ This is a comprehensive learning platform that connects students with courses, m
 - **Authentication**: Register and login with email/password or Google OAuth
 - **Real-time Messaging**: Exchange messages with other users and mentors
 - **AI Assistant**: Get immediate help from an AI chatbot for quick questions
+- **Feedback System**: Submit feedback, feature requests, and bug reports with star ratings
 
 ### 👨‍💼 For Administrators
 - **User Management**: Add, edit, and manage user accounts
@@ -41,6 +42,7 @@ This is a comprehensive learning platform that connects students with courses, m
 - **Analytics Dashboard**: Track user engagement and course popularity
 - **Media Upload**: Manage educational media using Cloudinary integration
 - **Secure Access Control**: Role-based permissions system
+- **Feedback Management**: Review, respond to, and track user feedback
 
 ## 🛠️ Technologies
 
@@ -134,6 +136,17 @@ The API provides the following endpoints:
 - `DELETE /api/messages/:id` - Delete a specific message
 - `PUT /api/messages/:id/read` - Mark a message as read
 
+### Feedback
+- `POST /api/feedback` - Submit new feedback
+- `GET /api/feedback` - Get all feedback (admin only)
+- `GET /api/feedback/:id` - Get feedback by ID
+- `GET /api/feedback/my-feedback` - Get current user's feedback
+- `GET /api/feedback/status/:status` - Get feedback by status (admin only)
+- `PUT /api/feedback/:id` - Update feedback
+- `PUT /api/feedback/:id/status` - Update feedback status (admin only)
+- `DELETE /api/feedback/:id` - Delete feedback (admin only)
+- `GET /api/feedback/stats` - Get feedback statistics (admin only)
+
 ### Media
 - `POST /api/media/upload` - Upload media files
 - `GET /api/media` - Get all media files
@@ -162,6 +175,19 @@ The platform includes a comprehensive messaging system for communication:
 - **Offline Support**: Local storage of messages for offline access
 - **Real-time Feedback**: Typing indicators and read status for enhanced interaction
 
+## 📝 Feedback Management System
+
+The platform includes a complete feedback management system:
+
+- **User Feedback Submission**: Users can submit feedback with ratings, titles, and descriptions
+- **Categorized Feedback**: Supports different types like feature requests, bug reports, and course feedback
+- **Rating System**: Star-based rating system to quantify user satisfaction
+- **Feedback History**: Users can view and track their submitted feedback
+- **Admin Response**: Administrators can review, respond to, and manage user feedback
+- **Status Tracking**: Feedback can be marked as pending, reviewed, resolved, or rejected
+- **Analytics Dashboard**: Administrators can see feedback statistics and trends
+- **Export Capability**: Export feedback data to CSV for offline analysis
+
 ## 👥 User Roles
 
 - **Student**: Browse courses, access learning materials, interact with mentors
@@ -184,6 +210,7 @@ The application uses MongoDB with the following main collections:
 - **Media**: Uploaded files and their metadata
 - **Mentorship**: Mentorship sessions and relationships
 - **Messages**: User-to-user communications with metadata
+- **Feedbacks**: User feedback, ratings, and admin responses
 
 ## ⚙️ Environment Variables
 
@@ -243,6 +270,8 @@ NEXT_PUBLIC_OPENROUTER_API_KEY=your_openrouter_api_key
 - **AI Tutor Integration**: Expanded AI capabilities for personalized learning paths
 - **Group Messaging**: Support for multi-user conversations and study groups
 - **Advanced Media Messaging**: Share documents, images, and recordings in chats
+- **Advanced Feedback Analytics**: Sentiment analysis and trend visualization for feedback
+- **Automated Feedback Categorization**: AI-powered categorization of user feedback
 
 ---
 

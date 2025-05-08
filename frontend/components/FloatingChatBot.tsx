@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { MessageCircle } from "lucide-react";
 import ChatBot from './ChatBot';
 
@@ -21,10 +21,6 @@ export default function FloatingChatBot() {
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-[425px] p-0">
-          <DialogTitle className="px-6 pt-6">Chat with AI Assistant</DialogTitle>
-          <DialogDescription className="px-6 pb-2">
-            Ask questions about the learning platform or get help with your courses.
-          </DialogDescription>
           <ChatBot />
         </DialogContent>
       </Dialog>

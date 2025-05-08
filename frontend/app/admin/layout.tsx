@@ -83,6 +83,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       icon: <Medal className="h-5 w-5" />,
     },
     {
+      title: "Feedback",
+      href: "/admin/feedback",
+      icon: <MessageSquare className="h-5 w-5" />,
+    },
+    {
       title: "Comments",
       href: "/admin/comments",
       icon: <MessageSquare className="h-5 w-5" />,

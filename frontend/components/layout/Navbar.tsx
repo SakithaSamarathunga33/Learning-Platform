@@ -39,6 +39,10 @@ const routes = [
     path: "/feed",
   },
   {
+    name: "Feedback",
+    path: "/feedback",
+  },
+  {
     name: "About",
     path: "/about",
   },
