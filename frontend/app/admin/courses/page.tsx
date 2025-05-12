@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { jsPDF } from "jspdf"
 import autoTable from "jspdf-autotable"
+import TaskList from "@/components/admin/TaskList"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,6 +59,15 @@ import {
 } from "@/components/ui/alert"
 import { getAuthenticatedFetch } from '@/utils/auth'
 
+interface Task {
+  id?: string;
+  title: string;
+  completed?: boolean;
+  courseId?: string;
+  userId?: string;
+  orderIndex?: number;
+}
+
 interface Course {
   id: string;
   title: string;
@@ -74,6 +84,7 @@ interface Course {
   students?: number;
   rating?: number;
   createdAt?: string;
+  tasks?: Task[];
 }
 
 interface User {
@@ -102,7 +113,8 @@ export default function CoursesPage() {
     price: 0,
     category: '',
     isPublished: false,
-    thumbnailUrl: ''
+    thumbnailUrl: '',
+    tasks: [] as Task[]
   })
   const [alert, setAlert] = useState<{
     type: 'success' | 'error' | 'info';
@@ -124,7 +136,8 @@ export default function CoursesPage() {
     price: 0,
     category: '',
     isPublished: false,
-    thumbnailUrl: ''
+    thumbnailUrl: '',
+    tasks: [] as Task[]
   })
 
   // Simulate mounted state for animations
@@ -216,16 +229,49 @@ export default function CoursesPage() {
     }
   };
 
-  const handleEdit = (course: Course) => {
+  const handleEdit = async (course: Course) => {
     setEditingCourse(course);
-    setEditForm({
-      title: course.title || '',
-      description: course.description || '',
-      price: course.price || 0,
-      category: course.category || '',
-      isPublished: course.isPublished === true || course.published === true || false,
-      thumbnailUrl: course.thumbnailUrl || ''
-    });
+    
+    // Fetch course with tasks
+    try {
+      const response = await authenticatedFetch(`http://localhost:8080/api/courses/${course.id}/with-tasks`);
+      if (response && response.ok) {
+        const courseWithTasks = await response.json();
+        setEditForm({
+          title: courseWithTasks.title || '',
+          description: courseWithTasks.description || '',
+          price: courseWithTasks.price || 0,
+          category: courseWithTasks.category || '',
+          isPublished: courseWithTasks.isPublished === true || courseWithTasks.published === true || false,
+          thumbnailUrl: courseWithTasks.thumbnailUrl || '',
+          tasks: courseWithTasks.tasks || []
+        });
+      } else {
+        // Fallback if we can't get tasks
+        setEditForm({
+          title: course.title || '',
+          description: course.description || '',
+          price: course.price || 0,
+          category: course.category || '',
+          isPublished: course.isPublished === true || course.published === true || false,
+          thumbnailUrl: course.thumbnailUrl || '',
+          tasks: []
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching course tasks:', err);
+      // Fallback
+      setEditForm({
+        title: course.title || '',
+        description: course.description || '',
+        price: course.price || 0,
+        category: course.category || '',
+        isPublished: course.isPublished === true || course.published === true || false,
+        thumbnailUrl: course.thumbnailUrl || '',
+        tasks: []
+      });
+    }
+    
     setIsEditDialogOpen(true);
   };
 
@@ -250,7 +296,9 @@ export default function CoursesPage() {
         published: editForm.isPublished,
         thumbnailUrl: editForm.thumbnailUrl || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Y29kaW5nfGVufDB8fDB8fHww&w=640&q=80",
         // Include tags field expected by the backend
-        tags: []
+        tags: [],
+        // Include tasks
+        tasks: editForm.tasks || []
       };
       
       // Log payload for debugging without breaking error boundaries
@@ -412,7 +460,9 @@ export default function CoursesPage() {
         published: addForm.isPublished,
         thumbnailUrl: addForm.thumbnailUrl || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Y29kaW5nfGVufDB8fDB8fHww&w=640&q=80",
         // Include tags field expected by the backend
-        tags: []
+        tags: [],
+        // Include tasks
+        tasks: addForm.tasks || []
       };
 
       console.log("Create payload:", JSON.stringify(requestBody, null, 2));
@@ -491,7 +541,8 @@ export default function CoursesPage() {
         price: 0,
         category: '',
         isPublished: false,
-        thumbnailUrl: ''
+        thumbnailUrl: '',
+        tasks: []
       });
 
       toast.success('Course created successfully');
@@ -721,170 +772,283 @@ export default function CoursesPage() {
 
       {/* Add Course Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Add New Course</DialogTitle>
+        <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-4 border-b">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Plus className="h-5 w-5 text-primary" />
+              Add New Course
+            </DialogTitle>
             <DialogDescription>
-              Create a new course by filling out the form below.
+              Create a new course by filling out the form below. Add tasks to help students track their progress.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="title">Title</Label>
-              <Input
-                id="title"
-                value={addForm.title}
-                onChange={(e) => setAddForm({ ...addForm, title: e.target.value })}
-                placeholder="Enter course title"
+          
+          <div className="grid gap-6 py-6">
+            {/* Basic Information Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-primary">Basic Information</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="add-title" className="font-medium">
+                    Course Title <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="add-title"
+                    value={addForm.title}
+                    onChange={(e) => setAddForm({ ...addForm, title: e.target.value })}
+                    placeholder="Enter course title"
+                    className="w-full"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="add-category" className="font-medium">
+                    Category
+                  </Label>
+                  <Select 
+                    value={addForm.category} 
+                    onValueChange={(value) => setAddForm({ ...addForm, category: value })}
+                  >
+                    <SelectTrigger id="add-category" className="w-full">
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="programming">Programming</SelectItem>
+                      <SelectItem value="design">Design</SelectItem>
+                      <SelectItem value="business">Business</SelectItem>
+                      <SelectItem value="marketing">Marketing</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="add-description" className="font-medium">
+                  Description
+                </Label>
+                <Textarea
+                  id="add-description"
+                  value={addForm.description}
+                  onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
+                  placeholder="Enter course description"
+                  className="w-full min-h-[120px]"
                 />
               </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={addForm.description}
-                onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
-                placeholder="Enter course description"
-                className="min-h-[100px]"
-                />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="add-price" className="font-medium">
+                    Price ($)
+                  </Label>
+                  <Input
+                    id="add-price"
+                    type="number"
+                    value={addForm.price}
+                    onChange={(e) => setAddForm({ ...addForm, price: parseFloat(e.target.value) || 0 })}
+                    placeholder="0.00"
+                    className="w-full"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="add-thumbnailUrl" className="font-medium">
+                    Thumbnail URL
+                  </Label>
+                  <Input
+                    id="add-thumbnailUrl"
+                    value={addForm.thumbnailUrl}
+                    onChange={(e) => setAddForm({ ...addForm, thumbnailUrl: e.target.value })}
+                    placeholder="https://example.com/image.jpg"
+                    className="w-full"
+                  />
+                </div>
               </div>
-            <div className="grid gap-2">
-              <Label htmlFor="thumbnailUrl">Thumbnail URL</Label>
-              <Input
-                id="thumbnailUrl"
-                value={addForm.thumbnailUrl}
-                onChange={(e) => setAddForm({ ...addForm, thumbnailUrl: e.target.value })}
-                placeholder="Enter thumbnail URL"
+              
+              <div className="flex items-center space-x-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="add-isPublished"
+                  checked={addForm.isPublished}
+                  onChange={(e) => setAddForm({ ...addForm, isPublished: e.target.checked })}
+                  className="rounded border-gray-300 h-4 w-4 text-primary focus:ring-primary"
                 />
+                <Label htmlFor="add-isPublished" className="font-medium cursor-pointer">
+                  Publish this course (make it available to students)
+                </Label>
               </div>
-            <div className="grid gap-2">
-              <Label htmlFor="price">Price</Label>
-              <Input
-                id="price"
-                type="number"
-                value={addForm.price}
-                onChange={(e) => setAddForm({ ...addForm, price: Number(e.target.value) })}
-                placeholder="Enter course price"
-              />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="category">Category</Label>
-              <Select
-                value={addForm.category}
-                onValueChange={(value) => setAddForm({ ...addForm, category: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="programming">Programming</SelectItem>
-                  <SelectItem value="design">Design</SelectItem>
-                  <SelectItem value="business">Business</SelectItem>
-                  <SelectItem value="marketing">Marketing</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="isPublished"
-                checked={addForm.isPublished}
-                onChange={(e) => setAddForm({ ...addForm, isPublished: e.target.checked })}
-                className="rounded border-gray-300"
-              />
-              <Label htmlFor="isPublished">Published</Label>
+            
+            {/* Task List Section */}
+            <div className="border-t pt-6 mt-2">
+              <h3 className="text-lg font-semibold text-primary mb-4">Course Tasks</h3>
+              <div className="bg-muted/30 rounded-lg p-4">
+                <TaskList 
+                  tasks={addForm.tasks} 
+                  onChange={(tasks) => setAddForm({ ...addForm, tasks })}
+                />
+              </div>
             </div>
           </div>
-          <DialogFooter>
+          
+          <DialogFooter className="border-t pt-4 gap-2">
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                 Cancel
             </Button>
-            <Button onClick={handleAddCourse}>Create Course</Button>
+            <Button 
+              onClick={handleAddCourse} 
+              className="gap-2" 
+              disabled={!addForm.title.trim()}
+            >
+              <Plus className="h-4 w-4" />
+              Create Course
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Edit Course Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Course</DialogTitle>
+        <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-4 border-b">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-primary" />
+              Edit Course
+            </DialogTitle>
             <DialogDescription>
-              Make changes to the course details below.
+              Update course details and manage tasks to help students track their progress.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-title">Title</Label>
-              <Input
-                id="edit-title"
-                value={editForm.title}
-                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                placeholder="Enter course title"
-              />
+          
+          <div className="grid gap-6 py-6">
+            {/* Basic Information Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-primary">Basic Information</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title" className="font-medium">
+                    Course Title <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="title"
+                    value={editForm.title}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    placeholder="Enter course title"
+                    className="w-full"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="category" className="font-medium">
+                    Category
+                  </Label>
+                  <Select 
+                    value={editForm.category} 
+                    onValueChange={(value) => setEditForm({ ...editForm, category: value })}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="programming">Programming</SelectItem>
+                      <SelectItem value="design">Design</SelectItem>
+                      <SelectItem value="business">Business</SelectItem>
+                      <SelectItem value="marketing">Marketing</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="description" className="font-medium">
+                  Description
+                </Label>
+                <Textarea
+                  id="description"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  placeholder="Enter course description"
+                  className="w-full min-h-[120px]"
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="price" className="font-medium">
+                    Price ($)
+                  </Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    value={editForm.price}
+                    onChange={(e) => setEditForm({ ...editForm, price: parseFloat(e.target.value) || 0 })}
+                    placeholder="0.00"
+                    className="w-full"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="thumbnailUrl" className="font-medium">
+                    Thumbnail URL
+                  </Label>
+                  <Input
+                    id="thumbnailUrl"
+                    value={editForm.thumbnailUrl}
+                    onChange={(e) => setEditForm({ ...editForm, thumbnailUrl: e.target.value })}
+                    placeholder="https://example.com/image.jpg"
+                    className="w-full"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="isPublished"
+                  checked={editForm.isPublished}
+                  onChange={(e) => setEditForm({ ...editForm, isPublished: e.target.checked })}
+                  className="rounded border-gray-300 h-4 w-4 text-primary focus:ring-primary"
+                />
+                <Label htmlFor="isPublished" className="font-medium cursor-pointer">
+                  Publish this course (make it available to students)
+                </Label>
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-description">Description</Label>
-              <Textarea
-                id="edit-description"
-                value={editForm.description}
-                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                placeholder="Enter course description"
-                className="min-h-[100px]"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-price">Price</Label>
-              <Input
-                id="edit-price"
-                type="number"
-                value={editForm.price}
-                onChange={(e) => setEditForm({ ...editForm, price: Number(e.target.value) })}
-                placeholder="Enter course price"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-thumbnail">Thumbnail URL</Label>
-              <Input
-                id="edit-thumbnail"
-                value={editForm.thumbnailUrl}
-                onChange={(e) => setEditForm({ ...editForm, thumbnailUrl: e.target.value })}
-                placeholder="Enter thumbnail URL"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-category">Category</Label>
-              <Select
-                value={editForm.category}
-                onValueChange={(value) => setEditForm({ ...editForm, category: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="programming">Programming</SelectItem>
-                  <SelectItem value="design">Design</SelectItem>
-                  <SelectItem value="business">Business</SelectItem>
-                  <SelectItem value="marketing">Marketing</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="edit-isPublished"
-                checked={editForm.isPublished}
-                onChange={(e) => setEditForm({ ...editForm, isPublished: e.target.checked })}
-                className="rounded border-gray-300"
-              />
-              <Label htmlFor="edit-isPublished">Published</Label>
+            
+            {/* Task List Section */}
+            <div className="border-t pt-6 mt-2">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-primary">Course Tasks</h3>
+                {editingCourse && (
+                  <div className="text-sm text-muted-foreground">
+                    Course ID: {editingCourse.id}
+                  </div>
+                )}
+              </div>
+              <div className="bg-muted/30 rounded-lg p-4">
+                <TaskList 
+                  tasks={editForm.tasks} 
+                  onChange={(tasks) => setEditForm({ ...editForm, tasks })}
+                />
+              </div>
             </div>
           </div>
-          <DialogFooter>
+          
+          <DialogFooter className="border-t pt-4 gap-2">
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleEditSubmit}>Save changes</Button>
+            <Button 
+              onClick={handleEditSubmit} 
+              className="gap-2" 
+              disabled={!editForm.title.trim()}
+            >
+              <Pencil className="h-4 w-4" />
+              Save Changes
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

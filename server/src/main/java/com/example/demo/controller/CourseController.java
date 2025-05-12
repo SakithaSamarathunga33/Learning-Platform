@@ -1,7 +1,9 @@
 package com.example.demo.controller;
 
 import com.example.demo.model.Course;
+import com.example.demo.model.Task;
 import com.example.demo.service.CourseService;
+import com.example.demo.service.TaskService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,6 +19,9 @@ public class CourseController {
 
     @Autowired
     private CourseService courseService;
+    
+    @Autowired
+    private TaskService taskService;
 
     @GetMapping
     public ResponseEntity<List<Course>> getAllCourses() {
@@ -26,6 +31,12 @@ public class CourseController {
     @GetMapping("/{id}")
     public ResponseEntity<Course> getCourseById(@PathVariable String id) {
         Course course = courseService.getCourseById(id);
+        return course != null ? ResponseEntity.ok(course) : ResponseEntity.notFound().build();
+    }
+    
+    @GetMapping("/{id}/with-tasks")
+    public ResponseEntity<Course> getCourseWithTasks(@PathVariable String id) {
+        Course course = courseService.getCourseWithTasks(id);
         return course != null ? ResponseEntity.ok(course) : ResponseEntity.notFound().build();
     }
 
