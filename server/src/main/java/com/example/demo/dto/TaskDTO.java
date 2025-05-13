@@ -1,12 +1,8 @@
-package com.example.demo.model;
+package com.example.demo.dto;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.LocalDateTime;
 
-@Document(collection = "tasks")
-public class Task {
-    @Id
+public class TaskDTO {
     private String id;
     private String title;
     private String description;
@@ -18,33 +14,24 @@ public class Task {
     private int orderIndex;
     private LocalDateTime dueDate;
 
-    public Task() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        this.completed = false;
+    // Default constructor
+    public TaskDTO() {
     }
 
-    // Constructor for creating a task without user (admin creating tasks for a course)
-    public Task(String title, String description, String courseId, int orderIndex) {
+    // Constructor with parameters
+    public TaskDTO(String id, String title, String description, boolean completed, 
+                  String courseId, String userId, LocalDateTime createdAt, 
+                  LocalDateTime updatedAt, int orderIndex, LocalDateTime dueDate) {
+        this.id = id;
         this.title = title;
         this.description = description;
-        this.courseId = courseId;
-        this.orderIndex = orderIndex;
-        this.completed = false;
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    // Constructor for creating a user-specific task completion record
-    public Task(String title, String description, String courseId, String userId, int orderIndex) {
-        this.title = title;
-        this.description = description;
+        this.completed = completed;
         this.courseId = courseId;
         this.userId = userId;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
         this.orderIndex = orderIndex;
-        this.completed = false;
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+        this.dueDate = dueDate;
     }
 
     // Getters and Setters
@@ -127,4 +114,4 @@ public class Task {
     public void setDueDate(LocalDateTime dueDate) {
         this.dueDate = dueDate;
     }
-}
+} 

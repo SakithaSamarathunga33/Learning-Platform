@@ -87,4 +87,20 @@ public class TaskController {
         boolean deleted = taskService.deleteTask(id);
         return ResponseEntity.ok(Map.of("success", deleted));
     }
+    
+    // Mark task as complete
+    @PutMapping("/{id}/complete")
+    public ResponseEntity<TaskDTO> markTaskAsComplete(@PathVariable String id) {
+        String userId = authUtil.getCurrentUser().getId();
+        TaskDTO updatedTask = taskService.updateTaskStatus(id, true, userId);
+        return ResponseEntity.ok(updatedTask);
+    }
+    
+    // Mark task as incomplete
+    @PutMapping("/{id}/incomplete")
+    public ResponseEntity<TaskDTO> markTaskAsIncomplete(@PathVariable String id) {
+        String userId = authUtil.getCurrentUser().getId();
+        TaskDTO updatedTask = taskService.updateTaskStatus(id, false, userId);
+        return ResponseEntity.ok(updatedTask);
+    }
 }
