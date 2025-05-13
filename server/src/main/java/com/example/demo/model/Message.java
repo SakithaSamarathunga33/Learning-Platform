@@ -1,7 +1,9 @@
 package com.example.demo.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import jakarta.persistence.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
+import org.springframework.data.mongodb.core.mapping.Document;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,31 +11,24 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Entity
-@Table(name = "messages")
+@Document(collection = "messages")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class Message {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    private String id;
     
     // Store sender ID as string to be compatible with MongoDB User ID
-    @Column(name = "sender_id", nullable = false)
     private String senderId;
     
     // Store recipient ID as string to be compatible with MongoDB User ID
-    @Column(name = "recipient_id", nullable = false)
     private String recipientId;
     
-    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
     
-    @Column(nullable = false)
     private LocalDateTime timestamp;
     
-    @Column(nullable = false)
     private boolean read;
     
     // Transient fields for User objects - not stored in DB
@@ -43,13 +38,13 @@ public class Message {
     @Transient
     private User recipient;
 
-    @PrePersist
-    public void prePersist() {
+    // Initialize the message
+    public void initialize() {
         if (timestamp == null) {
             timestamp = LocalDateTime.now();
         }
         if (id == null) {
-            id = UUID.randomUUID();
+            id = UUID.randomUUID().toString();
         }
         
         // Make sure senderId and recipientId are set from User objects if provided

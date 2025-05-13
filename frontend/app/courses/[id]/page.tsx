@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getAuthenticatedFetch } from '@/utils/auth';
-import { toast } from "sonner";
 import CourseView from '@/components/courses/CourseView';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2, Lock, LogIn } from 'lucide-react';

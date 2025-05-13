@@ -14,6 +14,8 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import axios from 'axios';
 import { useMessages } from '@/context/MessagesContext';
+import { useToast } from "@/components/ui/use-toast";
+import { Toast, ToastAction } from "@/components/ui/toast";
 
 interface User {
   id: string;
@@ -67,7 +69,74 @@ export default function Navbar() {
   // Close search results when clicking outside
   useOnClickOutside(searchResultsRef, () => setShowResults(false));
 
-  const { unreadCount } = useMessages();
+  const { unreadCount, lastMessage } = useMessages();
+  const { toast } = useToast();
+  
+  // Ref to track the last notification shown
+  const lastNotifiedMessageRef = useRef<string | null>(null);
+  // Track if we've shown the initial notification
+  const [hasShownInitialNotification, setHasShownInitialNotification] = useState(false);
+
+  // Show notification for existing messages when user logs in
+  useEffect(() => {
+    if (!user || !lastMessage || hasShownInitialNotification) return;
+    
+    // Skip notification if message is from current user
+    if (lastMessage.sender?.id === user.id) {
+      setHasShownInitialNotification(true);
+      return;
+    }
+    
+    // Show toast notification for existing unread messages on login
+    toast({
+      title: `You have ${unreadCount} unread message${unreadCount > 1 ? 's' : ''}`,
+      description: unreadCount > 1 
+        ? `Latest from ${lastMessage.sender?.name || 'Someone'}: ${lastMessage.content.length > 50 ? `${lastMessage.content.substring(0, 50)}...` : lastMessage.content}`
+        : `From ${lastMessage.sender?.name || 'Someone'}: ${lastMessage.content.length > 50 ? `${lastMessage.content.substring(0, 50)}...` : lastMessage.content}`,
+      action: (
+        <ToastAction 
+          altText="View" 
+          onClick={() => router.push('/messages')}
+        >
+          View
+        </ToastAction>
+      ),
+    });
+    
+    // Mark as shown
+    setHasShownInitialNotification(true);
+    lastNotifiedMessageRef.current = lastMessage.id;
+  }, [user, lastMessage, unreadCount, toast, router, hasShownInitialNotification]);
+
+  // Show notification when a new message arrives after login
+  useEffect(() => {
+    if (!lastMessage || !user || !hasShownInitialNotification) return;
+    
+    // Skip notification if this is the same message we already notified about
+    if (lastNotifiedMessageRef.current === lastMessage.id) return;
+    
+    // Skip notification if message is from current user
+    if (lastMessage.sender?.id === user.id) return;
+    
+    // Update the last notified message
+    lastNotifiedMessageRef.current = lastMessage.id;
+    
+    // Show toast notification for new message
+    toast({
+      title: `New message from ${lastMessage.sender?.name || 'Someone'}`,
+      description: lastMessage.content.length > 60 
+        ? `${lastMessage.content.substring(0, 60)}...` 
+        : lastMessage.content,
+      action: (
+        <ToastAction 
+          altText="View" 
+          onClick={() => router.push('/messages')}
+        >
+          View
+        </ToastAction>
+      ),
+    });
+  }, [lastMessage, toast, user, router, hasShownInitialNotification]);
 
   // Function to update user data
   const updateUserData = () => {
@@ -81,6 +150,8 @@ export default function Navbar() {
             user.picture !== userData.picture || 
             user.profilePicture !== userData.profilePicture) {
           setUser(userData);
+          // Reset notification state when user changes
+          setHasShownInitialNotification(false);
         }
       } catch (error) {
         console.error('Error parsing user data:', error);
@@ -88,6 +159,8 @@ export default function Navbar() {
     } else if (user !== null) {
       // Only set to null if not already null
       setUser(null);
+      // Reset notification state when user logs out
+      setHasShownInitialNotification(false);
     }
   };
 
@@ -417,7 +490,7 @@ export default function Navbar() {
               <Button variant="ghost" size="icon" className="relative">
                 <MessageSquare className="h-5 w-5" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white animate-pulse">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -609,8 +682,16 @@ export default function Navbar() {
                       <Button variant="outline" asChild className="w-full">
                         <Link href="/profile">Your Profile</Link>
                       </Button>
-                      <Button variant="outline" asChild className="w-full">
-                        <Link href="/messages">Messages</Link>
+                      <Button variant="outline" asChild className="w-full relative">
+                        <Link href="/messages" className="flex items-center justify-center">
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Messages
+                          {unreadCount > 0 && (
+                            <span className="absolute right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white animate-pulse">
+                              {unreadCount > 9 ? '9+' : unreadCount}
+                            </span>
+                          )}
+                        </Link>
                       </Button>
                       {user?.roles?.includes('ROLE_ADMIN') && (
                         <Button variant="outline" asChild className="w-full">

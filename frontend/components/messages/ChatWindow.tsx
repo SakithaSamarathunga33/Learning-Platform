@@ -65,6 +65,26 @@ const ChatWindow = ({ recipient, onClose, isModal = false }: ChatWindowProps) =>
     }
   };
 
+  // Add function to handle individual message deletion
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      // First, remove the message from the UI (optimistic update)
+      setMessages(prevMessages => prevMessages.filter(m => m.id !== messageId));
+      
+      // Then try to delete the message via the API
+      await api.delete(`/api/messages/${messageId}`);
+      
+      // If successful, no need to do anything else
+    } catch (err) {
+      // If the API call fails, show an error and revert the UI update
+      setError('Failed to delete message');
+      console.error('Error deleting message:', err);
+      
+      // Refresh messages to restore state
+      fetchMessages();
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -128,28 +148,42 @@ const ChatWindow = ({ recipient, onClose, isModal = false }: ChatWindowProps) =>
         // Delete locally regardless of server response
         const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
         
-        // Remove ALL possible localStorage keys for this conversation
-        // Standard key format
+        // IMPROVED DELETION LOGIC FOR PERSISTENCE
+        
+        // 1. Set consistent deletion markers
+        const deletionKeys = [
+          // Standard key format
+          `messages_${currentUser.id}_${recipient.id}_deleted`,
+          // Alternative formats to ensure all bases are covered
+          `messages_${currentUser.username}_${recipient.username}_deleted`,
+          `conversation_${currentUser.id}_${recipient.id}_deleted`
+        ];
+        
+        // Set all deletion markers to true
+        deletionKeys.forEach(key => {
+          console.log(`Setting deletion marker: ${key}`);
+          localStorage.setItem(key, 'true');
+        });
+        
+        // 2. Remove associated message data
         localStorage.removeItem(`messages_${currentUser.id}_${recipient.id}`);
-        
-        // Delete flag
-        localStorage.removeItem(`messages_${currentUser.id}_${recipient.id}_deleted`);
-        
-        // Alternative key formats that might exist
         localStorage.removeItem(`chat_${currentUser.id}_${recipient.id}`);
         localStorage.removeItem(`chat_${currentUser.username}_${recipient.username}`);
-        
-        // Backward compatibility for other formats
         localStorage.removeItem(`messages_${recipient.id}`);
         localStorage.removeItem(`messages_${recipient.username}`);
         localStorage.removeItem(`messages_${currentUser.id}_${recipient.username}`);
         
-        // Force clean LocalStorage for any keys containing this user's ID
+        // 3. Find and clean up any other related keys
         Object.keys(localStorage).forEach(key => {
-          if (key.includes(recipient.id) || key.includes(recipient.username)) {
+          if ((key.includes(recipient.id) || key.includes(recipient.username)) && 
+              !key.includes('_deleted')) {
+            console.log(`Removing related key: ${key}`);
             localStorage.removeItem(key);
           }
         });
+        
+        // 4. Set the flag for conversations to be refreshed
+        localStorage.setItem('conversations_need_refresh', 'true');
         
         // Create a custom event to notify other components about the deleted conversation
         const event = new CustomEvent('conversationDeleted', { 
@@ -240,7 +274,7 @@ const ChatWindow = ({ recipient, onClose, isModal = false }: ChatWindowProps) =>
                 className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
               >
                 <div 
-                  className={`max-w-[70%] rounded-lg p-3 ${
+                  className={`relative max-w-[70%] rounded-lg p-3 group ${
                     isCurrentUser 
                       ? 'bg-blue-500 text-white rounded-tr-none' 
                       : 'bg-gray-200 dark:bg-gray-700 rounded-tl-none'
@@ -250,6 +284,20 @@ const ChatWindow = ({ recipient, onClose, isModal = false }: ChatWindowProps) =>
                   <div className={`text-xs mt-1 ${isCurrentUser ? 'text-blue-100' : 'text-gray-500'}`}>
                     {formatTimestamp(message.timestamp)}
                   </div>
+                  
+                  {/* Add delete button for user's own messages */}
+                  {isCurrentUser && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteMessage(message.id);
+                      }}
+                      className="absolute -top-2 -right-2 p-1 bg-white dark:bg-gray-800 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Delete message"
+                    >
+                      <HiTrash className="h-3.5 w-3.5 text-red-500 hover:text-red-700" />
+                    </button>
+                  )}
                 </div>
               </div>
             );

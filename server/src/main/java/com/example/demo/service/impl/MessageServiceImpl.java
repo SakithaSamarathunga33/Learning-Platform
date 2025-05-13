@@ -9,8 +9,12 @@ import com.example.demo.repository.MessageRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.service.MessageService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -21,11 +25,13 @@ public class MessageServiceImpl implements MessageService {
 
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
+    private final MongoTemplate mongoTemplate;
 
     @Autowired
-    public MessageServiceImpl(MessageRepository messageRepository, UserRepository userRepository) {
+    public MessageServiceImpl(MessageRepository messageRepository, UserRepository userRepository, MongoTemplate mongoTemplate) {
         this.messageRepository = messageRepository;
         this.userRepository = userRepository;
+        this.mongoTemplate = mongoTemplate;
     }
 
     @Override
@@ -36,6 +42,7 @@ public class MessageServiceImpl implements MessageService {
         message.setContent(content);
         message.setTimestamp(LocalDateTime.now());
         message.setRead(false);
+        message.initialize(); // Initialize the new message
         
         return messageRepository.save(message);
     }
@@ -53,9 +60,14 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
-    @Transactional
     public void markMessagesAsRead(User sender, User recipient) {
-        messageRepository.markMessagesAsReadByUserIds(sender.getId(), recipient.getId());
+        Query query = new Query(Criteria.where("senderId").is(sender.getId())
+                .and("recipientId").is(recipient.getId())
+                .and("read").is(false));
+        
+        Update update = new Update().set("read", true);
+        
+        mongoTemplate.updateMulti(query, update, Message.class);
     }
     
     @Override
@@ -64,7 +76,18 @@ public class MessageServiceImpl implements MessageService {
         User user = userRepository.findById(userId.toString())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
                 
-        List<String> partnerIds = messageRepository.findConversationPartnerIds(user.getId());
+        // Get all conversations for the user
+        List<Message> conversations = messageRepository.findConversationsByUserId(user.getId());
+        
+        // Extract unique partner IDs
+        Set<String> partnerIds = new HashSet<>();
+        for (Message message : conversations) {
+            if (message.getSenderId().equals(user.getId())) {
+                partnerIds.add(message.getRecipientId());
+            } else {
+                partnerIds.add(message.getSenderId());
+            }
+        }
         
         return partnerIds.stream()
             .map(partnerId -> {
@@ -95,8 +118,26 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public List<Map<String, Object>> getUserConversations(User user) {
-        List<String> partnerIds = messageRepository.findConversationPartnerIds(user.getId());
+        // Get all messages where the user is either sender or recipient
+        Query query = new Query();
+        query.addCriteria(new Criteria().orOperator(
+            Criteria.where("senderId").is(user.getId()),
+            Criteria.where("recipientId").is(user.getId())
+        ));
         
+        List<Message> allMessages = mongoTemplate.find(query, Message.class);
+        
+        // Find distinct conversation partner IDs
+        Set<String> partnerIds = new HashSet<>();
+        for (Message message : allMessages) {
+            if (message.getSenderId().equals(user.getId())) {
+                partnerIds.add(message.getRecipientId());
+            } else {
+                partnerIds.add(message.getSenderId());
+            }
+        }
+        
+        // Get conversation details for each partner
         return partnerIds.stream()
             .map(partnerId -> {
                 User partner = userRepository.findById(partnerId)
@@ -104,17 +145,38 @@ public class MessageServiceImpl implements MessageService {
                 
                 if (partner == null) return null;
                 
-                Map<String, Object> conversation = new HashMap<>();
-                Message latestMessage = messageRepository.findLatestMessageBetweenUserIds(user.getId(), partner.getId());
+                // Find the latest message between user and partner
+                Query latestQuery = new Query();
+                latestQuery.addCriteria(
+                    new Criteria().orOperator(
+                        Criteria.where("senderId").is(user.getId()).and("recipientId").is(partnerId),
+                        Criteria.where("senderId").is(partnerId).and("recipientId").is(user.getId())
+                    )
+                );
+                latestQuery.with(Sort.by(Sort.Direction.DESC, "timestamp"));
+                latestQuery.limit(1);
+                
+                Message latestMessage = mongoTemplate.findOne(latestQuery, Message.class);
                 
                 // Set the user references in the message
                 if (latestMessage != null) {
                     loadUserReferences(latestMessage);
                 }
                 
+                // Count unread messages
+                Query unreadQuery = new Query();
+                unreadQuery.addCriteria(
+                    Criteria.where("senderId").is(partnerId)
+                        .and("recipientId").is(user.getId())
+                        .and("read").is(false)
+                );
+                
+                int unreadCount = (int) mongoTemplate.count(unreadQuery, Message.class);
+                
+                Map<String, Object> conversation = new HashMap<>();
                 conversation.put("user", partner);
                 conversation.put("lastMessage", latestMessage);
-                conversation.put("unreadCount", messageRepository.countUnreadMessagesBySenderIdAndRecipientId(partner.getId(), user.getId()));
+                conversation.put("unreadCount", unreadCount);
                 
                 return conversation;
             })
@@ -128,10 +190,13 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
-    @Transactional
     public void deleteMessage(UUID messageId, User requestingUser) {
-        Message message = messageRepository.findById(messageId)
-                .orElseThrow(() -> new ResourceNotFoundException("Message not found"));
+        Optional<Message> messageOpt = messageRepository.findById(messageId.toString());
+        if (!messageOpt.isPresent()) {
+            throw new ResourceNotFoundException("Message not found");
+        }
+        
+        Message message = messageOpt.get();
         
         // Load the user references to ensure the sender check works properly
         loadUserReferences(message);

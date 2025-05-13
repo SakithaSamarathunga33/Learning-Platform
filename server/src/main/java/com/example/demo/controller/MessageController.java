@@ -80,4 +80,15 @@ public class MessageController {
         messageService.deleteMessage(messageId, currentUser);
         return ResponseEntity.ok().build();
     }
+    
+    // Debug endpoint to check message service configuration
+    @GetMapping("/debug")
+    public ResponseEntity<?> debug() {
+        User currentUser = authUtil.getCurrentUser();
+        return ResponseEntity.ok(Map.of(
+            "currentUser", currentUser.getUsername(),
+            "unreadCount", messageService.getUnreadMessageCount(currentUser),
+            "serviceStatus", "ok"
+        ));
+    }
 } 

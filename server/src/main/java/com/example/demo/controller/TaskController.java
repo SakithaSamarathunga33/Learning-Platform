@@ -1,83 +1,90 @@
 package com.example.demo.controller;
 
-import com.example.demo.model.Task;
-import com.example.demo.model.User;
+import com.example.demo.dto.TaskDTO;
 import com.example.demo.service.TaskService;
+import com.example.demo.util.AuthUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/tasks")
 @CrossOrigin(origins = "http://localhost:3030")
 public class TaskController {
 
     @Autowired
     private TaskService taskService;
+    
+    @Autowired
+    private AuthUtil authUtil;
 
-    // Admin endpoints for managing course tasks
-    @GetMapping("/courses/{courseId}/tasks")
-    public ResponseEntity<List<Task>> getTasksForCourse(@PathVariable String courseId) {
-        return ResponseEntity.ok(taskService.getAllTasksForCourse(courseId));
-    }
-
-    @PostMapping("/courses/{courseId}/tasks")
+    // Create a new task (admin only)
+    @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Task> createTaskForCourse(@PathVariable String courseId, @RequestBody Task task) {
-        task.setCourseId(courseId);
-        task.setUserId(null); // This is a course template task, not user-specific
-        Task createdTask = taskService.createTask(task);
+    public ResponseEntity<TaskDTO> createTask(@RequestBody TaskDTO taskDTO) {
+        TaskDTO createdTask = taskService.createTask(taskDTO);
         return ResponseEntity.ok(createdTask);
     }
 
-    @PutMapping("/tasks/{id}")
+    // Get all tasks (admin only)
+    @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Task> updateTask(@PathVariable String id, @RequestBody Task taskDetails) {
-        Task updatedTask = taskService.updateTask(id, taskDetails);
-        return updatedTask != null ? ResponseEntity.ok(updatedTask) : ResponseEntity.notFound().build();
+    public ResponseEntity<List<TaskDTO>> getAllTasks() {
+        return ResponseEntity.ok(taskService.getAllTasks());
     }
 
-    @DeleteMapping("/tasks/{id}")
+    // Get task by ID
+    @GetMapping("/{id}")
+    public ResponseEntity<TaskDTO> getTaskById(@PathVariable String id) {
+        return ResponseEntity.ok(taskService.getTaskById(id));
+    }
+
+    // Get tasks for a course
+    @GetMapping("/course/{courseId}")
+    public ResponseEntity<List<TaskDTO>> getTasksByCourse(@PathVariable String courseId) {
+        return ResponseEntity.ok(taskService.getTasksByCourse(courseId));
+    }
+
+    // Get tasks for the current user
+    @GetMapping("/my-tasks")
+    public ResponseEntity<List<TaskDTO>> getMyTasks() {
+        String userId = authUtil.getCurrentUser().getId();
+        return ResponseEntity.ok(taskService.getTasksByUser(userId));
+    }
+
+    // Get tasks for a specific course and the current user
+    @GetMapping("/my-tasks/course/{courseId}")
+    public ResponseEntity<List<TaskDTO>> getMyCourseTasksByCourse(@PathVariable String courseId) {
+        String userId = authUtil.getCurrentUser().getId();
+        return ResponseEntity.ok(taskService.getTasksByCourseAndUser(courseId, userId));
+    }
+
+    // Update task (admin only)
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<TaskDTO> updateTask(@PathVariable String id, @RequestBody TaskDTO taskDTO) {
+        TaskDTO updatedTask = taskService.updateTask(id, taskDTO);
+        return ResponseEntity.ok(updatedTask);
+    }
+
+    // Update task completion status
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<TaskDTO> updateTaskStatus(@PathVariable String id, @RequestBody Map<String, Boolean> statusUpdate) {
+        boolean completed = statusUpdate.get("completed");
+        String userId = authUtil.getCurrentUser().getId();
+        TaskDTO updatedTask = taskService.updateTaskStatus(id, completed, userId);
+        return ResponseEntity.ok(updatedTask);
+    }
+
+    // Delete task (admin only)
+    @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Boolean>> deleteTask(@PathVariable String id) {
         boolean deleted = taskService.deleteTask(id);
         return ResponseEntity.ok(Map.of("success", deleted));
-    }
-
-    // User endpoints for task completion
-    @GetMapping("/user/courses/{courseId}/tasks")
-    public ResponseEntity<List<Task>> getUserTasksForCourse(
-            @PathVariable String courseId, 
-            @AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(taskService.getUserTasksForCourse(courseId, user.getId()));
-    }
-
-    @PutMapping("/tasks/{id}/complete")
-    public ResponseEntity<Task> markTaskAsComplete(
-            @PathVariable String id, 
-            @AuthenticationPrincipal User user) {
-        Task completedTask = taskService.markTaskAsComplete(id, user.getId());
-        return completedTask != null ? ResponseEntity.ok(completedTask) : ResponseEntity.notFound().build();
-    }
-
-    @PutMapping("/tasks/{id}/incomplete")
-    public ResponseEntity<Task> markTaskAsIncomplete(
-            @PathVariable String id, 
-            @AuthenticationPrincipal User user) {
-        Task task = taskService.markTaskAsIncomplete(id, user.getId());
-        return task != null ? ResponseEntity.ok(task) : ResponseEntity.notFound().build();
-    }
-
-    @GetMapping("/user/courses/{courseId}/progress")
-    public ResponseEntity<Map<String, Double>> getCourseProgress(
-            @PathVariable String courseId, 
-            @AuthenticationPrincipal User user) {
-        double progress = taskService.getCourseProgressPercentage(courseId, user.getId());
-        return ResponseEntity.ok(Map.of("progress", progress));
     }
 }

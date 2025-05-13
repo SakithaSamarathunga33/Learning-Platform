@@ -120,7 +120,7 @@ const MessagesPage = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const userParam = searchParams.get('user');
-  const { resetUnreadCount, updateUnreadCount } = useMessages();
+  const { resetUnreadCount, updateUnreadCount, isInitialized } = useMessages();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedChat, setSelectedChat] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -131,7 +131,52 @@ const MessagesPage = () => {
   const [editContent, setEditContent] = useState('');
   const [botTyping, setBotTyping] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<string>("");
+  const [userLoggedIn, setUserLoggedIn] = useState<boolean | null>(null);
   
+  // Add an effect to handle page refreshes 
+  useEffect(() => {
+    // Handler for page loads - ensures we respect deletion markers even after page refresh
+    const handlePageLoad = () => {
+      console.log("Page loaded - checking for deletion markers");
+      
+      // Check if flag is set to refresh conversations
+      if (localStorage.getItem('conversations_need_refresh') === 'true') {
+        console.log("Need refresh flag is set - will refresh conversations");
+        // Flag will be cleared in fetchConversations
+      }
+      
+      // Re-fetch conversations to ensure deletions are respected
+      fetchConversations();
+    };
+
+    // Listen for page loads
+    window.addEventListener('load', handlePageLoad);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('load', handlePageLoad);
+    };
+  }, []);
+
+  // Check if user is logged in
+  useEffect(() => {
+    const checkUserLoggedIn = () => {
+      const storedUser = localStorage.getItem('user');
+      const storedToken = localStorage.getItem('token');
+      
+      if (storedUser && storedToken) {
+        console.log("User is logged in, token present");
+        setUserLoggedIn(true);
+      } else {
+        console.log("User is not logged in or token missing");
+        setUserLoggedIn(false);
+        setError('You must be logged in to view messages');
+      }
+    };
+    
+    checkUserLoggedIn();
+  }, []);
+
   // Load messages from local storage
   useEffect(() => {
     const loadLocalMessages = () => {
@@ -171,8 +216,10 @@ const MessagesPage = () => {
 
   // Fetch conversations
   useEffect(() => {
-    fetchConversations();
-  }, []);
+    if (userLoggedIn) {
+      fetchConversations();
+    }
+  }, [userLoggedIn]);
 
   // Fetch messages when a chat is selected
   useEffect(() => {
@@ -257,28 +304,68 @@ const MessagesPage = () => {
   const fetchConversations = async () => {
     try {
       setLoading(true);
+      console.log("Fetching conversations...");
       const response = await api.get(`/api/messages/conversations`);
+      console.log("Conversations response:", response.data);
+      
+      if (!response.data || response.data.length === 0) {
+        console.log("No conversations found in API response");
+        setLoading(false);
+        return;
+      }
       
       // Get current user to check for locally deleted conversations
       const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
       
+      // Check if we need to do a clean fetch (after deletions)
+      const needsRefresh = localStorage.getItem('conversations_need_refresh') === 'true';
+      if (needsRefresh) {
+        console.log("Conversations need refresh flag detected - clearing flag");
+        localStorage.removeItem('conversations_need_refresh');
+      }
+      
       // Filter out conversations that were deleted locally
-      const filteredConversations = response.data.filter(conversation => {
-        // Check all possible deletion indicators in localStorage
-        const standardKey = `messages_${currentUser.id}_${conversation.user.id}`;
-        const deletedFlag = localStorage.getItem(`${standardKey}_deleted`);
+      const filteredConversations = response.data.filter((conversation: any) => {
+        const userId = conversation.user.id;
+        const username = conversation.user.username;
         
-        // Look for any localStorage keys that indicate this conversation was deleted
-        const wasDeleted = Object.keys(localStorage).some(key => 
-          (key.includes(conversation.user.id) || key.includes(conversation.user.username)) && 
-          key.includes('_deleted')
+        // List of all possible deletion marker keys
+        const deletionMarkers = [
+          `messages_${currentUser.id}_${userId}_deleted`,
+          `messages_${currentUser.username}_${username}_deleted`,
+          `conversation_${currentUser.id}_${userId}_deleted`
+        ];
+        
+        // Check if ANY deletion marker exists
+        const isDeleted = deletionMarkers.some(key => {
+          const value = localStorage.getItem(key);
+          if (value) {
+            console.log(`Found deletion marker: ${key} = ${value}`);
+            return true;
+          }
+          return false;
+        });
+        
+        // Also check for any keys containing user id/username and "_deleted"
+        const hasGenericDeletionMarker = Object.keys(localStorage).some(key => 
+          (key.includes(userId) || key.includes(username)) && 
+          key.includes('_deleted') &&
+          localStorage.getItem(key) === 'true'
         );
         
-        return !deletedFlag && !wasDeleted;
+        // If marked as deleted, log it
+        if (isDeleted || hasGenericDeletionMarker) {
+          console.log(`Filtering out deleted conversation with: ${username}`);
+        }
+        
+        // Keep the conversation only if NOT deleted
+        return !isDeleted && !hasGenericDeletionMarker;
       });
       
+      console.log("Filtered conversations:", filteredConversations);
+      
       // Process each conversation to ensure we're showing the latest message
-      const processedConversations = filteredConversations.map(conversation => {
+      const processedConversations = filteredConversations.map((conversation: any) => {
         // Identify if this conversation is the currently selected one
         const isSelectedConversation = selectedChat && selectedChat.id === conversation.user.id;
         
@@ -304,6 +391,7 @@ const MessagesPage = () => {
         return conversation;
       });
       
+      console.log("Setting conversations:", processedConversations);
       setConversations(processedConversations);
       
       // If we have conversations and no chat is selected, select the first one
@@ -995,7 +1083,7 @@ const MessagesPage = () => {
     return null;
   };
 
-  // In the message rendering section, filter out replaced messages
+  // Filter out messages that have been replaced or hidden
   const filteredMessages = messages.filter(msg => !msg.replacedBy && !msg.hidden);
 
   // Update handleDeleteConversation to completely clean localStorage
@@ -1032,39 +1120,49 @@ const MessagesPage = () => {
           await Promise.allSettled(deletionPromises);
         } catch (err) {
           // If there's an error deleting individual messages, just continue with local deletion
-          console.log('Could not delete individual messages:', err.message);
+          console.log('Could not delete individual messages:', err instanceof Error ? err.message : String(err));
         }
         
-        // Delete locally regardless of server response
+        // IMPROVED DELETION LOGIC FOR PERSISTENCE
+
+        // 1. Use consistent deletion marker keys
+        const deletionKeys = [
+          // Standard key format - most reliable way to mark a conversation as deleted
+          `messages_${currentUser.id}_${selectedChat.id}_deleted`,
+          
+          // Alternative formats to ensure all bases are covered
+          `messages_${currentUser.username}_${selectedChat.username}_deleted`,
+          `conversation_${currentUser.id}_${selectedChat.id}_deleted`
+        ];
         
-        // Remove ALL possible localStorage keys for this conversation
-        // Standard key format
+        // Set all deletion markers to true
+        deletionKeys.forEach(key => {
+          console.log(`Setting deletion marker: ${key}`);
+          localStorage.setItem(key, 'true');
+        });
+        
+        // 2. Remove all associated data
+        // Remove message data
         localStorage.removeItem(`messages_${currentUser.id}_${selectedChat.id}`);
-        
-        // Delete flag - explicitly mark as deleted
-        localStorage.setItem(`messages_${currentUser.id}_${selectedChat.id}_deleted`, 'true');
-        
-        // Alternative key formats that might exist
         localStorage.removeItem(`chat_${currentUser.id}_${selectedChat.id}`);
         localStorage.removeItem(`chat_${currentUser.username}_${selectedChat.username}`);
-        
-        // Backward compatibility for other formats
         localStorage.removeItem(`messages_${selectedChat.id}`);
         localStorage.removeItem(`messages_${selectedChat.username}`);
         localStorage.removeItem(`messages_${currentUser.id}_${selectedChat.username}`);
         
-        // Force clean LocalStorage for any keys containing this user's ID or username
+        // 3. Find and clean up any other related keys
         Object.keys(localStorage).forEach(key => {
           if ((key.includes(selectedChat.id) || key.includes(selectedChat.username)) && 
+              key.includes(currentUser.id) && 
               !key.includes('_deleted')) {
-            // For regular keys, just remove them
+            // Remove any conversation data
+            console.log(`Removing related key: ${key}`);
             localStorage.removeItem(key);
-          } else if ((key.includes(selectedChat.id) || key.includes(selectedChat.username)) && 
-                     key.includes('_deleted')) {
-            // For deletion marker keys, set them to true
-            localStorage.setItem(key, 'true');
           }
         });
+
+        // 4. Explicitly mark conversations for this user as needing refresh
+        localStorage.setItem('conversations_need_refresh', 'true');
         
         // Dispatch event to notify other components
         const event = new CustomEvent('conversationDeleted', { 
@@ -1102,15 +1200,70 @@ const MessagesPage = () => {
     }
   };
 
+  // Add a conditional rendering for the loading state
   if (loading && conversations.length === 0) {
     return <div className="flex justify-center items-center h-screen">Loading conversations...</div>;
+  }
+  
+  // Show login message if user is not logged in
+  if (userLoggedIn === false) {
+    return (
+      <div className="container mx-auto p-4 max-w-6xl">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Messages</h1>
+          <div className="flex gap-2">
+            <a 
+              href="/debug/auth-debug" 
+              className="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 py-1 px-2 rounded transition-colors"
+            >
+              Auth Debug
+            </a>
+          </div>
+        </div>
+        
+        <div className="bg-yellow-100 p-6 rounded-lg shadow text-center">
+          <h2 className="text-xl font-semibold mb-3">Login Required</h2>
+          <p className="mb-4">You need to be logged in to view your messages.</p>
+          <a 
+            href="/login" 
+            className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Log In
+          </a>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="container mx-auto p-4 max-w-6xl">
-      <h1 className="text-2xl font-bold mb-6">Messages</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Messages</h1>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              // Clear any deletion markers first
+              Object.keys(localStorage).forEach(key => {
+                if (key.includes('_deleted')) {
+                  console.log("Clearing deletion marker:", key);
+                  localStorage.removeItem(key);
+                }
+              });
+              // Then fetch conversations
+              fetchConversations();
+            }}
+            className="text-xs bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded transition-colors"
+          >
+            Refresh Conversations
+          </button>        
+          </div>
+      </div>
       
-      {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
+      {error && (
+        <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
+          <p>{error}</p>
+        </div>
+      )}
       
       <div className="flex flex-col md:flex-row gap-4">
         {/* Conversations List */}
@@ -1371,4 +1524,5 @@ const MessagesPage = () => {
   );
 };
 
+// Ensure the component is properly exported
 export default MessagesPage; 
